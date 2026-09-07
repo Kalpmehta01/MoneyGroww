@@ -1,0 +1,49 @@
+<<<<<<< HEAD
+node_modules/
+build/
+dist/
+.netlify/
+.env
+.env.local
+.DS_Store
+*.log
+=======
+# Dependencies
+node_modules/
+
+# Build output
+build/
+dist/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+npm-debug.log*
+
+# Package manager lock (keep package-lock.json)
+yarn.lock
+pnpm-lock.yaml
+
+# Coverage
+coverage/
+
+# Temp
+*.tmp
+*.temp
+>>>>>>> 80ee90a862b7dedebe251cf75dbd96f823a8ae50
