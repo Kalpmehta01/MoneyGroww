@@ -13,26 +13,18 @@ function ScrollArea({
   return (
     <ScrollAreaPrimitive.Root
       data-slot="scroll-area"
-<<<<<<< HEAD
       // min-h-0 matters: as a flex child, the default `min-height: auto`
       // resolves to the content's height, so the Root grows to fit all its
-      // content instead of being bounded by the parent — and then nothing
+      // content instead of being bounded by the parent â€” and then nothing
       // ever scrolls inside it.
       className={cn("relative min-h-0", className)}
-=======
-      className={cn("relative", className)}
->>>>>>> 80ee90a862b7dedebe251cf75dbd96f823a8ae50
       {...props}
     >
       <ScrollAreaPrimitive.Viewport
         data-slot="scroll-area-viewport"
-<<<<<<< HEAD
         // overscroll-contain stops the scroll chaining to the page when you
         // reach the top/bottom of this area.
         className="focus-visible:ring-ring/50 size-full overscroll-contain rounded-[inherit] outline-none focus-visible:ring-[3px] focus-visible:outline-1"
-=======
-        className="focus-visible:ring-ring/50 size-full rounded-[inherit] transition-[color,box-shadow] outline-none focus-visible:ring-[3px] focus-visible:outline-1"
->>>>>>> 80ee90a862b7dedebe251cf75dbd96f823a8ae50
       >
         {children}
       </ScrollAreaPrimitive.Viewport>

@@ -1,18 +1,11 @@
 
   import { defineConfig } from 'vite';
   import react from '@vitejs/plugin-react-swc';
-<<<<<<< HEAD
   import tailwindcss from '@tailwindcss/vite';
   import path from 'path';
 
   export default defineConfig({
     plugins: [react(), tailwindcss()],
-=======
-  import path from 'path';
-
-  export default defineConfig({
-    plugins: [react()],
->>>>>>> 80ee90a862b7dedebe251cf75dbd96f823a8ae50
     resolve: {
       extensions: ['.js', '.jsx', '.ts', '.tsx', '.json'],
       alias: {
@@ -64,7 +57,6 @@
     server: {
       port: 3000,
       open: true,
-<<<<<<< HEAD
       // Dev-only proxies. `npm run dev` runs Vite alone, which does NOT run the
       // Netlify functions in netlify/functions/ — requests to /.netlify/functions/*
       // fall through to Vite's SPA handler and come back as index.html (HTTP 200,
@@ -89,7 +81,5 @@
           rewrite: (path) => path.replace(/^\/yahoo-rss/, ''),
         },
       },
-=======
->>>>>>> 80ee90a862b7dedebe251cf75dbd96f823a8ae50
     },
   });

@@ -1,7 +1,6 @@
 [build]
   command = "npm run build"
   publish = "build"
-<<<<<<< HEAD
   functions = "netlify/functions"
 
 [functions]
@@ -13,5 +12,3 @@
   from = "/*"
   to = "/index.html"
   status = 200
-=======
->>>>>>> 80ee90a862b7dedebe251cf75dbd96f823a8ae50

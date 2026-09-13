@@ -7,13 +7,9 @@ function Card({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="card"
       className={cn(
-<<<<<<< HEAD
         // Borders carry separation; elevation is reserved for things that
         // genuinely float (popovers, dialogs).
         "bg-card text-card-foreground flex flex-col gap-6 rounded-lg border border-line",
-=======
-        "bg-card text-card-foreground flex flex-col gap-6 rounded-xl border",
->>>>>>> 80ee90a862b7dedebe251cf75dbd96f823a8ae50
         className,
       )}
       {...props}
@@ -36,15 +32,9 @@ function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
 
 function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
   return (
-<<<<<<< HEAD
     <h3
       data-slot="card-title"
       className={cn("t-h3", className)}
-=======
-    <h4
-      data-slot="card-title"
-      className={cn("leading-none", className)}
->>>>>>> 80ee90a862b7dedebe251cf75dbd96f823a8ae50
       {...props}
     />
   );
@@ -54,11 +44,7 @@ function CardDescription({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <p
       data-slot="card-description"
-<<<<<<< HEAD
       className={cn("text-sm text-ink-3", className)}
-=======
-      className={cn("text-muted-foreground", className)}
->>>>>>> 80ee90a862b7dedebe251cf75dbd96f823a8ae50
       {...props}
     />
   );
