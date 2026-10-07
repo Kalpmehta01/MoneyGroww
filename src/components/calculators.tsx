@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -22,25 +23,25 @@ import {
   generateEMIChartData,
 } from '../lib/finance';
 
-// Illustrative category benchmarks only â€” NOT tied to any specific platform
+// Illustrative category benchmarks only — NOT tied to any specific platform
 // or fund. Historical mutual fund category averages vary by data provider
 // and time period; verify current figures with AMFI/a licensed data source
 // before presenting these as real numbers to end users.
 const CATEGORY_BENCHMARKS = [
-  { type: 'Large Cap', rate: '10â€“13%', description: 'Established, blue-chip companies' },
-  { type: 'Flexi Cap', rate: '11â€“15%', description: 'Invests across market caps' },
-  { type: 'Mid Cap', rate: '13â€“17%', description: 'Higher growth, higher volatility' },
-  { type: 'Small Cap', rate: '14â€“20%', description: 'Highest growth potential and risk' },
+  { type: 'Large Cap', rate: '10–13%', description: 'Established, blue-chip companies' },
+  { type: 'Flexi Cap', rate: '11–15%', description: 'Invests across market caps' },
+  { type: 'Mid Cap', rate: '13–17%', description: 'Higher growth, higher volatility' },
+  { type: 'Small Cap', rate: '14–20%', description: 'Highest growth potential and risk' },
 ];
 
 const inr = (value: number) =>
-  `â‚¹${value.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
+  `₹${value.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
 
 const compactInr = (value: number) => {
-  if (Math.abs(value) >= 10000000) return `â‚¹${(value / 10000000).toFixed(1)}Cr`;
-  if (Math.abs(value) >= 100000) return `â‚¹${(value / 100000).toFixed(1)}L`;
-  if (Math.abs(value) >= 1000) return `â‚¹${Math.round(value / 1000)}k`;
-  return `â‚¹${value}`;
+  if (Math.abs(value) >= 10000000) return `₹${(value / 10000000).toFixed(1)}Cr`;
+  if (Math.abs(value) >= 100000) return `₹${(value / 100000).toFixed(1)}L`;
+  if (Math.abs(value) >= 1000) return `₹${Math.round(value / 1000)}k`;
+  return `₹${value}`;
 };
 
 /* -------------------------------------------------------------------------- */
@@ -62,6 +63,25 @@ interface FieldProps {
 
 function Field({ id, label, value, min, max, step, suffix, money, onChange }: FieldProps) {
   const fmt = (n: number) => (money ? inr(n) : `${n}${suffix ?? ''}`);
+
+  // The text box keeps its own draft while the person types, so an
+  // intermediate value like "2" (on the way to "25000") isn't clamped up to
+  // the minimum mid-keystroke. In-range values apply live; the draft is
+  // clamped and committed on blur or Enter.
+  const [draft, setDraft] = useState(String(value));
+  const [editing, setEditing] = useState(false);
+  useEffect(() => {
+    if (!editing) setDraft(String(value));
+  }, [value, editing]);
+
+  const parsed = parseFloat(draft);
+  const outOfRange = draft.trim() !== '' && (!Number.isFinite(parsed) || parsed < min || parsed > max);
+
+  const commit = () => {
+    setEditing(false);
+    onChange(draft);
+  };
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-4">
@@ -69,19 +89,31 @@ function Field({ id, label, value, min, max, step, suffix, money, onChange }: Fi
           {label}
         </Label>
         <div className="flex items-center gap-1.5">
+          {money && <span className="text-sm text-ink-3">₹</span>}
           <Input
             id={id}
             type="number"
-            inputMode="numeric"
+            inputMode="decimal"
             className="h-9 w-32 text-right font-medium tabular"
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
+            value={draft}
+            onFocus={() => setEditing(true)}
+            onChange={(e) => {
+              const next = e.target.value;
+              setDraft(next);
+              const n = parseFloat(next);
+              if (Number.isFinite(n) && n >= min && n <= max) onChange(n);
+            }}
+            onBlur={commit}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') e.currentTarget.blur();
+            }}
             min={min}
             max={max}
             step={step}
+            aria-invalid={outOfRange || undefined}
             aria-describedby={`${id}-range`}
           />
-          {suffix && <span className="w-4 text-sm text-ink-3">{suffix}</span>}
+          <span aria-hidden={!suffix || undefined} className="w-4 text-sm text-ink-3">{suffix}</span>
         </div>
       </div>
       <Slider
@@ -93,8 +125,12 @@ function Field({ id, label, value, min, max, step, suffix, money, onChange }: Fi
         aria-label={label}
       />
       {/* The valid range is stated up front, not only after an invalid entry. */}
-      <p id={`${id}-range`} className="text-[0.75rem] text-ink-3 tabular">
-        {fmt(min)} â€“ {fmt(max)}
+      <p
+        id={`${id}-range`}
+        className={`text-[0.75rem] tabular ${outOfRange ? 'text-neg' : 'text-ink-3'}`}
+      >
+        {outOfRange ? 'Enter a value between ' : ''}
+        {fmt(min)} – {fmt(max)}
       </p>
     </div>
   );
@@ -252,7 +288,6 @@ function GrowthChart({ data, series, title }: ChartProps) {
 /*  Main                                                                      */
 /* -------------------------------------------------------------------------- */
 
-import { useState } from 'react';
 
 interface CalculatorsProps {
   activeTab?: string;
@@ -301,7 +336,7 @@ export function Calculators({ activeTab = 'sip', onTabChange }: CalculatorsProps
           <h2 className="t-h2 text-ink">Calculators</h2>
           <p className="t-body mt-3">
             Adjust the inputs and watch the projection update. Every figure below is
-            calculated from the standard formulas â€” nothing is rounded away or
+            calculated from the standard formulas — nothing is rounded away or
             estimated.
           </p>
         </header>
@@ -554,7 +589,7 @@ export function Calculators({ activeTab = 'sip', onTabChange }: CalculatorsProps
             For illustration only, not investment advice. Figures are approximate
             historical category ranges and are not guaranteed; verify current data
             with AMFI or a licensed source before relying on them. Mutual fund
-            investments are subject to market risks â€” read all scheme-related
+            investments are subject to market risks — read all scheme-related
             documents carefully.
           </p>
         </div>

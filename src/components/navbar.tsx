@@ -16,7 +16,7 @@ function getInitialTheme(): boolean {
     if (stored === 'dark') return true;
     if (stored === 'light') return false;
   } catch {
-    // localStorage unavailable (private browsing, etc.) â€” fall through to system preference
+    // localStorage unavailable (private browsing, etc.) — fall through to system preference
   }
   return window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
 }
@@ -38,7 +38,7 @@ export function Navbar({ activeSection, onSectionChange }: NavbarProps) {
     try {
       window.localStorage.setItem(THEME_STORAGE_KEY, isDark ? 'dark' : 'light');
     } catch {
-      // ignore â€” theme just won't persist across reloads in this browser
+      // ignore — theme just won't persist across reloads in this browser
     }
   }, [isDark]);
 
@@ -51,11 +51,11 @@ export function Navbar({ activeSection, onSectionChange }: NavbarProps) {
     <header className="sticky top-0 z-40 border-b border-line bg-canvas/90 backdrop-blur-sm">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5 sm:px-8">
         {/* Wordmark. The mark is the only place the brand green appears as
-            decoration â€” everywhere else it means "primary action". */}
+            decoration — everywhere else it means "primary action". */}
         <button
           onClick={() => handleNavigate('home')}
           className="flex items-center gap-2.5 rounded-md text-ink"
-          aria-label="MoneyGroww â€” back to top"
+          aria-label="MoneyGroww — back to top"
         >
           <span
             aria-hidden="true"
@@ -118,7 +118,7 @@ export function Navbar({ activeSection, onSectionChange }: NavbarProps) {
         </div>
       </div>
 
-      {/* Mobile navigation â€” the previous version had no way to navigate at all
+      {/* Mobile navigation — the previous version had no way to navigate at all
           below the md breakpoint. */}
       {mobileOpen && (
         <nav

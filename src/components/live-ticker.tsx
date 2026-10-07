@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { TrendingUp, TrendingDown, AlertCircle } from 'lucide-react';
 import { fetchMarketQuotes } from '../lib/market-api';
 
@@ -7,7 +7,7 @@ interface TickerData {
     name: string;
     price: number | null;
     change: string;
-    isPositive: boolean;
+    isPositive: boolean | null;
 }
 
 const indianCompanies = [
@@ -33,7 +33,7 @@ export function LiveTicker() {
         const fetchTickerData = async () => {
             try {
                 // Goes through our own serverless function in production, and falls
-                // back to the Vite dev proxy under `npm run dev` â€” see src/lib/market-api.ts.
+                // back to the Vite dev proxy under `npm run dev` — see src/lib/market-api.ts.
                 const results = await fetchMarketQuotes(indianCompanies.map(c => c.symbol));
                 const bySymbol = new Map(results.map((r) => [r.symbol, r]));
 
@@ -50,7 +50,7 @@ export function LiveTicker() {
                                 isPositive,
                             };
                         }
-                        return { ...company, price: null, change: '0.00%', isPositive: true };
+                        return { ...company, price: null, change: '', isPositive: null };
                     });
 
                     setFeedError(null);
@@ -84,7 +84,7 @@ export function LiveTicker() {
                         Live market feed unavailable right now
                     </span>
                 ) : (
-                    <span className="text-xs text-ink-3">Loading market dataâ€¦</span>
+                    <span className="text-xs text-ink-3">Loading market data…</span>
                 )}
             </div>
         );
@@ -107,21 +107,23 @@ export function LiveTicker() {
                         <span className="font-medium text-ink-2">{item.name}</span>
                         <span className="tabular text-ink">
                             {item.price
-                                ? `â‚¹${item.price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                                : 'â€”'}
+                                ? `₹${item.price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                                : '—'}
                         </span>
                         {/* Direction is carried by the arrow and the sign, not by color alone. */}
-                        <span
-                            className={`tabular flex items-center gap-0.5 ${item.isPositive ? 'text-pos' : 'text-neg'}`}
-                        >
-                            {item.isPositive ? (
-                                <TrendingUp aria-hidden="true" className="h-3 w-3" />
-                            ) : (
-                                <TrendingDown aria-hidden="true" className="h-3 w-3" />
-                            )}
-                            {item.isPositive ? '+' : 'âˆ’'}
-                            {item.change}
-                        </span>
+                        {item.isPositive !== null && (
+                            <span
+                                className={`tabular flex items-center gap-0.5 ${item.isPositive ? 'text-pos' : 'text-neg'}`}
+                            >
+                                {item.isPositive ? (
+                                    <TrendingUp aria-hidden="true" className="h-3 w-3" />
+                                ) : (
+                                    <TrendingDown aria-hidden="true" className="h-3 w-3" />
+                                )}
+                                {item.isPositive ? '+' : '−'}
+                                {item.change}
+                            </span>
+                        )}
                     </div>
                 ))}
             </div>

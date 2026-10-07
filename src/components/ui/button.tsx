@@ -4,7 +4,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 
 import { cn } from "./utils";
 
-// Only the properties that actually change are transitioned â€” never `all`,
+// Only the properties that actually change are transitioned — never `all`,
 // which would also animate layout/transform properties unintentionally.
 const buttonVariants = cva(
   "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium shrink-0 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 disabled:pointer-events-none disabled:opacity-50 transition-[background-color,border-color,color] duration-[120ms] ease-[cubic-bezier(0.2,0.6,0.3,1)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent aria-invalid:border-destructive",

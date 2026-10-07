@@ -6,7 +6,7 @@
  *  1. The serverless functions in netlify/functions/ (`/.netlify/functions/...`).
  *     This is the real path — used in production and under `netlify dev`.
  *
- *  2. A dev-only Vite proxy (`/yahoo-api`, `/yahoo-rss`, configured in
+ *  2. A dev-only Vite proxy (`/yahoo-api`, `/news-rss`, configured in
  *     vite.config.ts). This exists because `npm run dev` runs Vite alone and
  *     does NOT run the serverless functions, so path 1 returns Vite's
  *     index.html fallback instead of JSON.
@@ -29,6 +29,7 @@ export interface NewsArticleData {
   link: string;
   thumbnail: string;
   description: string;
+  source?: string;
 }
 
 const isDev = Boolean(import.meta.env?.DEV);
@@ -111,7 +112,7 @@ async function fetchNewsViaFunction(): Promise<NewsArticleData[] | null> {
 
 async function fetchNewsViaDevProxy(): Promise<NewsArticleData[] | null> {
   try {
-    const response = await fetch('/yahoo-rss/news/rssindex');
+    const response = await fetch('/news-rss/rss/markets');
     if (!response.ok) return null;
 
     const xml = await response.text();
@@ -125,6 +126,7 @@ async function fetchNewsViaDevProxy(): Promise<NewsArticleData[] | null> {
       description: (item.querySelector('description')?.textContent ?? '')
         .replace(/<[^>]+>/g, '')
         .trim(),
+      source: 'Mint',
       thumbnail: '',
     }));
 

@@ -67,5 +67,5 @@ git log --all --full-history -- .env
 ## Notes / residual risks
 
 - The CSP allows `style-src 'unsafe-inline'` because Tailwind/Radix/charts set inline styles; scripts are `'self'` only.
-- Market data and news come from Yahoo's unofficial endpoints (no SLA or licence). Fine for a demo; replace with a licensed provider before relying on them commercially.
+- Market data comes from Yahoo's unofficial chart endpoint and news from public publisher RSS feeds (no SLA or licence). Fine for a demo; replace with a licensed provider before relying on them commercially.
 - The chat assistant is a public LLM endpoint: rate limits and a provider spend cap are your protection against cost abuse and prompt-injection spam.

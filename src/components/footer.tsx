@@ -1,172 +1,98 @@
-import { TrendingUp, Mail, Phone, MapPin } from 'lucide-react';
-import { Button } from './ui/button';
-import { Separator } from './ui/separator';
-
 interface FooterProps {
   onSectionChange: (section: string) => void;
+  onNavigateToCalculators: (tabValue?: string) => void;
 }
 
-export function Footer({ onSectionChange }: FooterProps) {
-  const quickLinks = [
-    { label: 'Home', id: 'home' },
-    { label: 'SIP Calculator', id: 'calculators' },
-    { label: 'Mutual Fund Calculator', id: 'calculators' },
-    { label: 'EMI Calculator', id: 'calculators' },
-    { label: 'Insights', id: 'insights' },
-    { label: 'About Us', id: 'about' },
-    { label: 'Contact', id: 'contact' }
-  ];
+export function Footer({ onSectionChange, onNavigateToCalculators }: FooterProps) {
+  const year = new Date().getFullYear();
 
-  const socialLinks = [
-    { name: 'LinkedIn', href: '#' },
-    { name: 'Twitter', href: '#' },
-    { name: 'Facebook', href: '#' },
-    { name: 'Instagram', href: '#' }
-  ];
-
-  const resources = [
-    'Investment Guide',
-    'Financial Planning',
-    'Tax Planning',
-    'Retirement Planning',
-    'Insurance Guide',
-    'Market Analysis'
-  ];
-
-  const legalLinks = [
-    'Privacy Policy',
-    'Terms of Service',
-    'Cookie Policy',
-    'Disclaimer',
-    'SEBI Guidelines',
-    'Risk Disclosure'
+  const columns: { heading: string; links: { label: string; onClick: () => void }[] }[] = [
+    {
+      heading: 'Calculators',
+      links: [
+        { label: 'SIP calculator', onClick: () => onNavigateToCalculators('sip') },
+        { label: 'Mutual fund calculator', onClick: () => onNavigateToCalculators('mutual-fund') },
+        { label: 'EMI calculator', onClick: () => onNavigateToCalculators('emi') },
+      ],
+    },
+    {
+      heading: 'Explore',
+      links: [
+        { label: 'Market & insights', onClick: () => onSectionChange('insights') },
+        { label: 'Ask the assistant', onClick: () => onSectionChange('chat') },
+        { label: 'Pricing', onClick: () => onSectionChange('pricing') },
+      ],
+    },
+    {
+      heading: 'Company',
+      links: [
+        { label: 'About', onClick: () => onSectionChange('about') },
+        { label: 'Contact', onClick: () => onSectionChange('contact') },
+      ],
+    },
   ];
 
   return (
-<footer className="bg-surface dark:bg-canvas text-white">
-<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* Main Footer Content */}
-<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-8">
-          {/* Company Info */}
-<div className="space-y-4">
-<div className="flex items-center space-x-2">
-<TrendingUp className="h-8 w-8 text-pos" />
-<span className="text-xl font-bold">MoneyGroww</span>
-</div>
-<p className="text-ink-2 text-sm">
-              Empowering your financial journey with smart calculators and insights.
-              Plan, invest, and grow your wealth with confidence.
-</p>
-<div className="space-y-2">
-<div className="flex items-center space-x-2 text-sm text-ink-2">
-<Mail className="h-4 w-4" />
-<span>support@moneygroww.com</span>
-</div>
-<div className="flex items-center space-x-2 text-sm text-ink-2">
-<Phone className="h-4 w-4" />
-<span>+91 98765 43210</span>
-</div>
-<div className="flex items-center space-x-2 text-sm text-ink-2">
-<MapPin className="h-4 w-4" />
-<span>Mumbai, Maharashtra</span>
-</div>
-</div>
-</div>
-
-          {/* Quick Links */}
-<div className="space-y-4">
-<h3 className="text-lg font-semibold">Quick Links</h3>
-<ul className="space-y-2">
-              {quickLinks.map((link, index) => (
-<li key={index}>
-<button
-                    onClick={() => onSectionChange(link.id)}
-                    className="text-sm text-ink-2 hover:text-pos transition-colors"
-                  >
-                    {link.label}
-</button>
-</li>
-              ))}
-</ul>
-</div>
-
-          {/* Resources */}
-<div className="space-y-4">
-<h3 className="text-lg font-semibold">Resources</h3>
-<ul className="space-y-2">
-              {resources.map((resource, index) => (
-<li key={index}>
-<a
-                    href="#"
-                    className="text-sm text-ink-2 hover:text-pos transition-colors"
-                  >
-                    {resource}
-</a>
-</li>
-              ))}
-</ul>
-</div>
-
-          {/* Legal & Newsletter */}
-<div className="space-y-4">
-<h3 className="text-lg font-semibold">Legal</h3>
-<ul className="space-y-2">
-              {legalLinks.map((link, index) => (
-<li key={index}>
-<a
-                    href="#"
-                    className="text-sm text-ink-2 hover:text-pos transition-colors"
-                  >
-                    {link}
-</a>
-</li>
-              ))}
-</ul>
-</div>
-</div>
-
-<Separator className="bg-secondary mb-8" />
-
-        {/* Bottom Footer */}
-<div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
-          {/* Copyright */}
-<div className="text-sm text-ink-3">
-            Â© 2024 MoneyGroww. All rights reserved. | Made with ï¸ for your financial growth
-</div>
-
-          {/* Social Media */}
-<div className="flex items-center space-x-4">
-<span className="text-sm text-ink-3">Follow us:</span>
-            {socialLinks.map((social, index) => (
-<Button
-                key={index}
-                variant="ghost"
-                size="sm"
-                className="text-ink-2 hover:text-pos hover:bg-surface-2 h-8 px-3"
-                asChild
+    <footer className="border-t border-line bg-surface">
+      <div className="mx-auto max-w-6xl px-5 pt-14 pb-10 sm:px-8">
+        <div className="grid gap-10 md:grid-cols-[1.4fr_repeat(3,1fr)]">
+          <div>
+            <button
+              onClick={() => onSectionChange('home')}
+              className="flex items-center gap-2.5 rounded-md text-ink"
+              aria-label="MoneyGroww — back to top"
+            >
+              <span
+                aria-hidden="true"
+                className="flex h-7 w-7 items-center justify-center rounded-md bg-accent text-accent-ink"
               >
-<a href={social.href} target="_blank" rel="noopener noreferrer">
-                  {social.name}
-</a>
-</Button>
-            ))}
-</div>
-</div>
+                <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 14.5 7.5 9l3.5 3.5L17 5.5" />
+                </svg>
+              </span>
+              <span className="text-[0.9375rem] font-semibold tracking-[-0.01em]">MoneyGroww</span>
+            </button>
+            <p className="mt-4 max-w-xs text-[0.8125rem] leading-relaxed text-ink-3">
+              Clear calculators and live market context for Indian investors.
+            </p>
+            <a
+              href="mailto:support@moneygroww.com"
+              className="mt-4 inline-block text-[0.8125rem] font-medium text-ink-2 hover:text-accent"
+            >
+              support@moneygroww.com
+            </a>
+          </div>
 
-        {/* Disclaimer */}
-<div className="mt-8 pt-8 border-t border-line">
-<div className="bg-surface-2 rounded-lg p-4">
-<h4 className="text-sm font-semibold mb-2 text-yellow-400">Important Disclaimer</h4>
-<p className="text-xs text-ink-2 leading-relaxed">
-              The calculations and projections provided by MoneyGroww are for illustrative purposes only and
-              should not be considered as investment advice. Past performance does not guarantee future results.
-              Mutual fund investments are subject to market risks. Please read all scheme related documents
-              carefully before investing. We recommend consulting with a qualified financial advisor before
-              making any investment decisions.
-</p>
-</div>
-</div>
-</div>
-</footer>
+          {columns.map((col) => (
+            <nav key={col.heading} aria-label={col.heading}>
+              <h3 className="t-label">{col.heading}</h3>
+              <ul className="mt-4 space-y-2.5">
+                {col.links.map((link) => (
+                  <li key={link.label}>
+                    <button
+                      onClick={link.onClick}
+                      className="text-sm text-ink-2 transition-colors duration-[120ms] hover:text-ink"
+                    >
+                      {link.label}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+          ))}
+        </div>
+
+        <div className="mt-12 border-t border-line pt-6">
+          <p className="text-[0.75rem] leading-relaxed text-ink-3">
+            <span className="font-medium text-ink-2">Disclaimer.</span> Calculations and projections
+            on MoneyGroww are for illustration only and are not investment advice. MoneyGroww is not a
+            SEBI-registered investment adviser. Mutual fund investments are subject to market risks;
+            read all scheme-related documents carefully. Past performance does not guarantee future
+            results. Consult a qualified financial adviser before making investment decisions.
+          </p>
+          <p className="mt-4 text-[0.75rem] text-ink-3">© {year} MoneyGroww. All rights reserved.</p>
+        </div>
+      </div>
+    </footer>
   );
 }

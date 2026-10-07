@@ -15,7 +15,7 @@ function ScrollArea({
       data-slot="scroll-area"
       // min-h-0 matters: as a flex child, the default `min-height: auto`
       // resolves to the content's height, so the Root grows to fit all its
-      // content instead of being bounded by the parent â€” and then nothing
+      // content instead of being bounded by the parent — and then nothing
       // ever scrolls inside it.
       className={cn("relative min-h-0", className)}
       {...props}

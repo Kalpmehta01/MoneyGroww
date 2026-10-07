@@ -1,8 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { TrendingUp, DollarSign, Shield, Target, BookOpen, BarChart3, ChevronLeft, ChevronRight, ExternalLink, Loader2 } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from './ui/card';
-import { Badge } from './ui/badge';
-import { fetchNews, fetchMarketQuotes } from '../lib/market-api';
+import { useState, useEffect } from 'react';
+import { ArrowUpRight, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { fetchNews, fetchMarketQuotes, type NewsArticleData } from '../lib/market-api';
+import { calculateSIP } from '../lib/finance';
 
 // Only http(s) URLs may reach an href. Anything else (e.g. "javascript:")
 // from a feed or data file falls back to an inert "#".
@@ -15,488 +14,410 @@ function safeExternalUrl(value: string): string {
   }
 }
 
-interface NewsArticle {
-  title: string;
-  pubDate: string;
-  link: string;
-  thumbnail: string;
-  description: string;
+function timeAgo(dateString: string): string {
+  const then = new Date(dateString).getTime();
+  if (!Number.isFinite(then)) return '';
+  const minutes = Math.max(0, Math.round((Date.now() - then) / 60000));
+  if (minutes < 1) return 'Just now';
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours} hr${hours === 1 ? '' : 's'} ago`;
+  return new Date(then).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 }
 
+const POLL_MS = 15000;
+
+/* -------------------------------------------------------------------------- */
+/*  Market snapshot                                                           */
+/* -------------------------------------------------------------------------- */
+
+interface MarketTile {
+  id: string;
+  title: string;
+  description: string;
+  currency: 'INR' | 'USD' | null;
+  suffix?: string;
+  value: number | null;
+  changePct: number | null;
+  /** Static reference figure rather than a live quote. */
+  reference?: boolean;
+}
+
+const INITIAL_TILES: MarketTile[] = [
+  { id: '^NSEI', title: 'NIFTY 50', description: 'Benchmark index of 50 large NSE companies', currency: null, value: null, changePct: null },
+  { id: 'NIFTYBEES.NS', title: 'Nifty BeES', description: 'Nippon India ETF tracking the NIFTY 50', currency: 'INR', value: null, changePct: null },
+  { id: 'GC=F', title: 'Gold', description: 'COMEX gold futures, USD per troy ounce', currency: 'USD', value: null, changePct: null },
+  { id: 'FD', title: 'Fixed deposit', description: 'Typical 1-year bank FD rate (reference)', currency: null, suffix: '%', value: 7.1, changePct: null, reference: true },
+];
+
+function formatTileValue(tile: MarketTile) {
+  if (tile.value == null) return '—';
+  const number = tile.value.toLocaleString(tile.currency === 'USD' ? 'en-US' : 'en-IN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  const prefix = tile.currency === 'INR' ? '₹' : tile.currency === 'USD' ? '$' : '';
+  return `${prefix}${number}${tile.suffix ?? ''}`;
+}
+
+function Change({ pct }: { pct: number | null }) {
+  if (pct == null) return <span className="text-[0.8125rem] text-ink-3">—</span>;
+  const flat = Math.abs(pct) < 0.005;
+  const up = pct > 0;
+  const Icon = flat ? Minus : up ? TrendingUp : TrendingDown;
+  // Direction is carried by the icon and the sign as well as the color.
+  return (
+    <span
+      className={`tabular inline-flex items-center gap-1 text-[0.8125rem] font-medium ${
+        flat ? 'text-ink-3' : up ? 'text-pos' : 'text-neg'
+      }`}
+    >
+      <Icon aria-hidden="true" className="h-3.5 w-3.5" />
+      {flat ? '0.00%' : `${up ? '+' : '−'}${Math.abs(pct).toFixed(2)}%`}
+      <span className="sr-only"> today</span>
+    </span>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Static content                                                            */
+/* -------------------------------------------------------------------------- */
+
+const SAVINGS_TIPS = [
+  {
+    title: 'Start small, stay consistent',
+    tip: 'A ₹500 monthly SIP started early can outgrow a larger one started late. Consistency matters more than size.',
+    impact: 'High',
+    link: 'https://www.investopedia.com/terms/s/systematicinvestmentplan.asp',
+  },
+  {
+    title: 'Automate on payday',
+    tip: 'Schedule SIPs and savings transfers for the day after your salary credit, before spending starts.',
+    impact: 'High',
+    link: 'https://www.investopedia.com/terms/p/payyourselffirst.asp',
+  },
+  {
+    title: 'Follow 50-30-20',
+    tip: 'Allocate 50% of take-home pay to needs, 30% to wants and 20% to savings and investments.',
+    impact: 'High',
+    link: 'https://www.investopedia.com/ask/answers/022916/what-502030-budget-rule.asp',
+  },
+  {
+    title: 'Build an emergency fund',
+    tip: 'Keep 6 months of essential expenses in a savings account or liquid fund before taking market risk.',
+    impact: 'High',
+    link: 'https://www.investopedia.com/terms/e/emergency_fund.asp',
+  },
+  {
+    title: 'Track where it goes',
+    tip: 'Review a month of UPI and card statements. Most people find 10–15% of spending they did not plan.',
+    impact: 'Medium',
+    link: 'https://www.investopedia.com/terms/b/budget.asp',
+  },
+  {
+    title: 'Step up every year',
+    tip: 'Raise your SIP by 10% with each increment. It barely dents take-home pay and sharply lifts the end corpus.',
+    impact: 'Medium',
+    link: 'https://www.investopedia.com/terms/c/compounding.asp',
+  },
+  {
+    title: 'Use your 80C limit',
+    tip: 'ELSS, PPF and EPF contributions can reduce taxable income by up to ₹1.5 lakh under the old regime.',
+    impact: 'Medium',
+    link: 'https://cleartax.in/s/80c-80-deductions',
+  },
+  {
+    title: 'Cancel idle subscriptions',
+    tip: 'Audit OTT, app and gym memberships every quarter and cancel anything unused for 30 days.',
+    impact: 'Low',
+    link: 'https://www.investopedia.com/terms/d/discretionaryincome.asp',
+  },
+];
+
+const IMPACT_STYLE: Record<string, string> = {
+  High: 'bg-accent-soft text-accent',
+  Medium: 'bg-secondary text-ink-2',
+  Low: 'bg-secondary text-ink-3',
+};
+
+const lakh = (v: number) => `₹${(v / 100000).toFixed(1)}L`;
+const SCENARIO_YEARS = [5, 10, 15, 20];
+
+const COMPOUNDING_ROWS = SCENARIO_YEARS.map((years) => {
+  const r = calculateSIP({ monthlyInvestment: 5000, returnRate: 12, duration: years });
+  return { years, invested: lakh(r.totalInvested), value: lakh(r.finalAmount) };
+});
+
+const INFLATION_ROWS = SCENARIO_YEARS.map((years) => ({
+  years,
+  value: `₹${Math.round(100000 / Math.pow(1.06, years)).toLocaleString('en-IN')}`,
+}));
+
+/* -------------------------------------------------------------------------- */
+/*  Component                                                                 */
+/* -------------------------------------------------------------------------- */
+
 export function Insights() {
-  const [news, setNews] = useState<NewsArticle[]>([]);
-  const [newsLoading, setNewsLoading] = useState(true);
-  const [newsError, setNewsError] = useState<string | null>(null);
+  const [news, setNews] = useState<NewsArticleData[]>([]);
+  const [newsState, setNewsState] = useState<'loading' | 'ready' | 'error'>('loading');
 
-  useEffect(() => {
-    const loadNews = async () => {
-      try {
-        setNewsLoading(true);
-        // Goes through our own serverless function (netlify/functions/news.js) in
-        // production, falling back to the Vite dev proxy under `npm run dev`.
-        // See src/lib/market-api.ts.
-        const items = await fetchNews();
-        setNews(items.slice(0, 3));
-      } catch (err) {
-        console.error('Error fetching news:', err);
-        setNewsError('Could not load latest news at this time.');
-      } finally {
-        setNewsLoading(false);
-      }
-    };
-
-    loadNews();
-  }, []);
-
-  const savingsTips = [
-    {
-      title: "Start Small, Think Big",
-      tip: "Begin with saving just â‚¹500 per month. Small consistent efforts compound over time.",
-      impact: "High",
-      link: "https://www.nerdwallet.com/article/banking/how-to-save-money"
-    },
-    {
-      title: "Automate Your Savings",
-      tip: "Set up automatic transfers to your savings account right after salary credit.",
-      impact: "Medium",
-      link: "https://www.nerdwallet.com/article/banking/automate-your-savings"
-    },
-    {
-      title: "Track Your Expenses",
-      tip: "Use apps or spreadsheets to monitor where your money goes each month.",
-      impact: "High",
-      link: "https://www.nerdwallet.com/article/finance/how-to-budget"
-    },
-    {
-      title: "Use the 50-30-20 Rule",
-      tip: "Allocate 50% for needs, 30% for wants, and 20% for savings and investments.",
-      impact: "High",
-      link: "https://www.nerdwallet.com/article/finance/nerdwallet-budget-calculator"
-    },
-    {
-      title: "Build an Emergency Fund",
-      tip: "Save 3-6 months of essential living expenses to protect against unexpected financial shocks.",
-      impact: "High",
-      link: "https://www.nerdwallet.com/article/banking/emergency-fund-why-it-matters"
-    },
-    {
-      title: "Wait 24 Hours Before Big Purchases",
-      tip: "Implement a cooling-off period to prevent impulse buying and ensure the purchase is truly needed.",
-      impact: "Medium",
-      link: "https://www.investopedia.com/articles/personal-finance/041415/5-ways-control-emotional-spending.asp"
-    },
-    {
-      title: "Review Subscriptions Monthly",
-      tip: "Cancel unused streaming services, gym memberships, or apps you haven't used in 30 days.",
-      impact: "Medium",
-      link: "https://www.nerdwallet.com/article/finance/subscription-services-budgeting"
-    },
-    {
-      title: "Shop with a Grocery List",
-      tip: "Plan meals and stick to a list to reduce food waste and avoid costly impulse items at the store.",
-      impact: "Low",
-      link: "https://www.nerdwallet.com/article/finance/how-to-save-money-on-groceries"
-    }
-  ];
-
-  const [currentSlide, setCurrentSlide] = useState(0);
-  const carouselRef = useRef<HTMLDivElement>(null);
-
-  // Calculate items visible based on screen size (desktop: 4, tablet: 2, mobile: 1)
-  // Auto-scroll logic
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % savingsTips.length);
-    }, 5000);
-
-    return () => clearInterval(timer);
-  }, [savingsTips.length]);
-
-  const slideLeft = () => {
-    setCurrentSlide((prev) => (prev === 0 ? savingsTips.length - 1 : prev - 1));
-  };
-
-  const slideRight = () => {
-    setCurrentSlide((prev) => (prev + 1) % savingsTips.length);
-  };
-
-  type MarketTrend = {
-    id: string;
-    title: string;
-    value: number | null;
-    trend: string;
-    change: string;
-    description: string;
-    color: string;
-    prefix?: string;
-    suffix?: string;
-  };
-
-  const [marketTrends, setMarketTrends] = useState<MarketTrend[]>([
-    {
-      id: '^NSEI',
-      title: "Equity Markets",
-      value: null,
-      trend: "Loading...",
-      change: "0.00%",
-      description: "NIFTY 50 Index",
-      color: "text-ink-3",
-      prefix: "â‚¹"
-    },
-    {
-      id: 'NIFTYBEES.NS',
-      title: "Mutual Funds ETF",
-      value: null,
-      trend: "Loading...",
-      change: "0.00%",
-      description: "Nippon India Nifty 50 BeES",
-      color: "text-ink-3",
-      prefix: "â‚¹"
-    },
-    {
-      id: 'GC=F',
-      title: "Gold Futures",
-      value: null,
-      trend: "Loading...",
-      change: "0.00%",
-      description: "COMEX Gold Futures (USD)",
-      color: "text-ink-3",
-      prefix: "$"
-    },
-    {
-      id: 'FD',
-      title: "Fixed Deposits",
-      value: 7.10,
-      trend: "Stable",
-      change: "0.00%",
-      description: "Avg 1-Year Bank Rate (Static)",
-      color: "text-accent",
-      prefix: "",
-      suffix: "%"
-    }
-  ]);
-  const [isLiveBlinking, setIsLiveBlinking] = useState(false);
+  const [tiles, setTiles] = useState<MarketTile[]>(INITIAL_TILES);
+  const [marketState, setMarketState] = useState<'loading' | 'live' | 'error'>('loading');
+  const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
 
   useEffect(() => {
     let mounted = true;
-    const fetchMarketData = async () => {
+    fetchNews()
+      .then((items) => {
+        if (!mounted) return;
+        setNews(items.slice(0, 5));
+        setNewsState('ready');
+      })
+      .catch((err) => {
+        console.error('Error fetching news:', err);
+        if (mounted) setNewsState('error');
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const load = async () => {
       try {
-        setIsLiveBlinking(true);
-        const symbols = ['^NSEI', 'NIFTYBEES.NS', 'GC=F'];
-
-        // Same transport as the ticker: our serverless function in production,
-        // Vite dev proxy under `npm run dev`. (This used to call allorigins.win
-        // directly from the browser.)
-        const quotes = await fetchMarketQuotes(symbols);
-
-        if (mounted) {
-          setMarketTrends(prev => {
-            const newTrends = [...prev];
-
-            quotes.forEach((quote) => {
-              if (quote.error || quote.price == null || !quote.prevClose) return;
-
-              const changePercent = ((quote.price - quote.prevClose) / quote.prevClose) * 100;
-              const trendIndex = newTrends.findIndex(t => t.id === quote.symbol);
-
-              if (trendIndex !== -1) {
-                newTrends[trendIndex] = {
-                  ...newTrends[trendIndex],
-                  value: quote.price,
-                  change: `${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%`,
-                  trend: changePercent > 0.5 ? "Bullish" : changePercent < -0.5 ? "Bearish" : "Stable",
-                  color: changePercent >= 0 ? "text-pos" : "text-neg"
-                };
-              }
-            });
-
-            return newTrends;
-          });
-
-          setTimeout(() => { if (mounted) setIsLiveBlinking(false); }, 1000);
+        const quotes = await fetchMarketQuotes(['^NSEI', 'NIFTYBEES.NS', 'GC=F']);
+        if (!mounted) return;
+        const bySymbol = new Map(quotes.map((q) => [q.symbol, q]));
+        let gotAny = false;
+        setTiles((prev) =>
+          prev.map((tile) => {
+            const q = bySymbol.get(tile.id);
+            if (!q || q.error || q.price == null || !q.prevClose) return tile;
+            gotAny = true;
+            return { ...tile, value: q.price, changePct: ((q.price - q.prevClose) / q.prevClose) * 100 };
+          })
+        );
+        if (gotAny || quotes.some((q) => q.price != null)) {
+          setMarketState('live');
+          setUpdatedAt(new Date());
         }
       } catch (e) {
-        console.error("Failed to fetch market data", e);
-        if (mounted) setIsLiveBlinking(false);
+        console.error('Failed to fetch market data', e);
+        // Keep showing the last good figures on a transient failure.
+        if (mounted) setMarketState((s) => (s === 'live' ? s : 'error'));
       }
     };
 
-    // Initial fetch
-    fetchMarketData();
-
-    // Continuous updation every 10 seconds
-    const interval = setInterval(fetchMarketData, 10000);
+    load();
+    const interval = setInterval(load, POLL_MS);
     return () => {
       mounted = false;
       clearInterval(interval);
     };
   }, []);
 
-  const growthVisuals = [
-    {
-      title: "Power of Compounding",
-      description: "â‚¹5,000 monthly SIP at 12% annual return",
-      years: [
-        { year: 5, amount: "â‚¹4.1L" },
-        { year: 10, amount: "â‚¹11.6L" },
-        { year: 15, amount: "â‚¹25.0L" },
-        { year: 20, amount: "â‚¹49.9L" }
-      ]
-    },
-    {
-      title: "Inflation Impact",
-      description: "How â‚¹1,00,000 loses value over time at 6% inflation",
-      years: [
-        { year: 5, amount: "â‚¹74,726" },
-        { year: 10, amount: "â‚¹55,839" },
-        { year: 15, amount: "â‚¹41,727" },
-        { year: 20, amount: "â‚¹31,180" }
-      ]
-    }
-  ];
-
   return (
-    <section className="px-5 py-20 sm:px-8 md:py-24 bg-surface-2">
-      <div className="max-w-6xl mx-auto">
-        <div className="max-w-2xl mb-12">
-          <h2 className="t-h2 text-ink mb-4">Financial Insights</h2>
-          <p className="t-body">Stay informed and make smarter financial decisions</p>
-        </div>
+    <section className="border-b border-line bg-surface-2">
+      <div className="mx-auto max-w-6xl px-5 py-20 sm:px-8 md:py-24">
+        <header className="max-w-2xl">
+          <h2 className="t-h2 text-ink">Market &amp; insights</h2>
+          <p className="t-body mt-3">
+            Where the market stands today, what is moving it, and the habits that matter more
+            than either over the long run.
+          </p>
+        </header>
 
-        {/* Live News Section */}
-        <div className="mb-16">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-2xl flex items-center">
-              <BookOpen className="h-6 w-6 mr-2 text-accent" />
-              Live Market News
-            </h3>
-
-            {newsLoading && <Loader2 className="h-5 w-5 animate-spin text-ink-3" />}
+        {/* ------------------------------------------------- Market snapshot */}
+        <div className="mt-12">
+          <div className="flex flex-wrap items-baseline justify-between gap-3">
+            <h3 className="t-h3 text-ink">Market snapshot</h3>
+            <p className="flex items-center gap-2 text-[0.8125rem] text-ink-3" aria-live="polite">
+              {marketState === 'live' && (
+                <>
+                  <span aria-hidden="true" className="relative flex h-2 w-2">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-pos opacity-60" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-pos" />
+                  </span>
+                  Live · updated{' '}
+                  {updatedAt?.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                </>
+              )}
+              {marketState === 'loading' && 'Loading prices…'}
+              {marketState === 'error' && 'Live prices unavailable right now'}
+            </p>
           </div>
 
-          {newsError ? (
-            <div className="bg-surface-2 dark:bg-surface-2 text-neg p-4 rounded-lg text-center border border-line dark:border-line">
-              {newsError}
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {newsLoading && news.length === 0 ? (
-                // Loading Skeletons
-                Array(3).fill(0).map((_, i) => (
-                  <Card key={i} className="animate-pulse">
-                    <CardHeader className="space-y-3">
-                      <div className="h-4 bg-muted dark:bg-secondary rounded w-1/3"></div>
-                      <div className="h-6 bg-muted dark:bg-secondary rounded w-full"></div>
-                      <div className="h-6 bg-muted dark:bg-secondary rounded w-5/6"></div>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                      <div className="h-4 bg-muted dark:bg-secondary rounded w-full"></div>
-                      <div className="h-4 bg-muted dark:bg-secondary rounded w-4/5"></div>
-                    </CardContent>
-                  </Card>
-                ))
-              ) : (
-                news.map((article, index) => (
-                  <Card key={index} className="flex flex-col h-full hover:shadow-lg transition-shadow duration-300">
-                    <CardHeader>
-                      <div className="flex items-start justify-between mb-2">
-                        <Badge variant="secondary" className="bg-accent-soft text-accent dark:bg-accent-soft dark:text-accent">
-                          {new Date(article.pubDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                        </Badge>
-                      </div>
-                      <CardTitle className="text-lg line-clamp-2" title={article.title}>{article.title}</CardTitle>
-                    </CardHeader>
-                    <CardContent className="flex-grow">
-                      {/* Extract plain text from potentially HTML description */}
-                      <CardDescription className="line-clamp-3">
-                        {article.description.replace(/<[^>]*>?/gm, '')}
-                      </CardDescription>
-                    </CardContent>
-                    <CardFooter className="pt-4 border-t border-line">
-                      <a
-                        href={safeExternalUrl(article.link)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-sm text-accent hover:text-accent dark:hover:text-accent font-medium flex items-center w-full justify-between"
-                      >
-                        Read Full Article
-                        <ExternalLink className="h-4 w-4 ml-1" />
-                      </a>
-                    </CardFooter>
-                  </Card>
-                ))
+          <ul className="mt-5 grid gap-px overflow-hidden rounded-lg border border-line bg-line sm:grid-cols-2 lg:grid-cols-4">
+            {tiles.map((tile) => (
+              <li key={tile.id} className="flex flex-col bg-surface p-5">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm font-medium text-ink">{tile.title}</span>
+                  {tile.reference && (
+                    <span className="rounded-sm bg-secondary px-1.5 py-0.5 text-[0.6875rem] font-medium text-ink-3">
+                      Reference
+                    </span>
+                  )}
+                </div>
+                <div
+                  className={`t-figure mt-3 text-[1.75rem] text-ink ${
+                    tile.value == null && marketState === 'loading' ? 'animate-pulse text-ink-3' : ''
+                  }`}
+                >
+                  {formatTileValue(tile)}
+                </div>
+                <div className="mt-1.5 min-h-5">
+                  {tile.reference ? (
+                    <span className="text-[0.8125rem] text-ink-3">Per annum</span>
+                  ) : (
+                    <Change pct={tile.changePct} />
+                  )}
+                </div>
+                <p className="mt-3 text-[0.8125rem] leading-relaxed text-ink-3">{tile.description}</p>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-3 text-[0.75rem] text-ink-3">
+            Quotes via Yahoo Finance; may be delayed. Change is versus the previous close.
+          </p>
+        </div>
+
+        {/* ------------------------------------- Headlines + growth scenarios */}
+        <div className="mt-16 grid items-start gap-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,0.75fr)]">
+          <div className="rounded-lg border border-line bg-surface">
+            <div className="flex items-baseline justify-between gap-3 border-b border-line px-6 py-5">
+              <h3 className="t-h3 text-ink">Latest market headlines</h3>
+              {newsState === 'ready' && news[0]?.source && (
+                <span className="text-[0.8125rem] text-ink-3">via {news[0].source}</span>
               )}
             </div>
-          )}
-        </div>
 
-        {/* Saving Tips Carousel */}
-        <div className="mb-16">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-2xl flex items-center">
-              <DollarSign className="h-6 w-6 mr-2 text-pos" />
-              Smart Saving Tips
-            </h3>
-            <div className="flex gap-2">
-              <button
-                onClick={slideLeft}
-                className="p-2 rounded-full hover:bg-muted dark:hover:bg-secondary transition"
-              >
-                <ChevronLeft className="h-5 w-5" />
-              </button>
-              <button
-                onClick={slideRight}
-                className="p-2 rounded-full hover:bg-muted dark:hover:bg-secondary transition"
-              >
-                <ChevronRight className="h-5 w-5" />
-              </button>
-            </div>
+            {newsState === 'loading' && (
+              <ul aria-label="Loading headlines" className="divide-y divide-line">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <li key={i} className="animate-pulse space-y-2.5 px-6 py-5">
+                    <div className="h-3 w-24 rounded bg-secondary" />
+                    <div className="h-4 w-11/12 rounded bg-secondary" />
+                    <div className="h-3 w-3/4 rounded bg-secondary" />
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {newsState === 'error' && (
+              <div className="px-6 py-10 text-center">
+                <p className="text-sm text-ink-2">Headlines could not be loaded right now.</p>
+                <p className="mt-1 text-[0.8125rem] text-ink-3">The rest of the page works normally. Try again in a few minutes.</p>
+              </div>
+            )}
+
+            {newsState === 'ready' && (
+              <ul className="divide-y divide-line">
+                {news.map((article) => (
+                  <li key={article.link}>
+                    <a
+                      href={safeExternalUrl(article.link)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="group block px-6 py-5 transition-colors duration-[120ms] hover:bg-surface-2"
+                    >
+                      <span className="text-[0.75rem] text-ink-3">{timeAgo(article.pubDate)}</span>
+                      <span className="mt-1 flex items-start justify-between gap-4">
+                        <span className="text-[0.9375rem] font-medium leading-snug text-ink group-hover:text-accent">
+                          {article.title}
+                        </span>
+                        <ArrowUpRight
+                          aria-hidden="true"
+                          className="mt-0.5 h-4 w-4 shrink-0 text-ink-3 transition-colors duration-[120ms] group-hover:text-accent"
+                        />
+                      </span>
+                      {article.description && (
+                        <span className="mt-1.5 line-clamp-2 text-[0.8125rem] leading-relaxed text-ink-3">
+                          {article.description}
+                        </span>
+                      )}
+                      <span className="sr-only"> (opens in a new tab)</span>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
 
-          <div className="relative overflow-hidden w-full py-6 px-2" ref={carouselRef}>
-            <div
-              className="flex transition-transform duration-700 ease-in-out gap-6"
-              style={{
-                transform: `translateX(calc(-${currentSlide * (100 / 3)}% - ${currentSlide * 1.5}rem))`
-              }}
-            >
-              {savingsTips.map((tip, index) => (
+          <div className="space-y-6">
+            <div className="rounded-lg border border-line bg-surface p-6">
+              <h3 className="t-h3 text-ink">Power of compounding</h3>
+              <p className="mt-1 text-[0.8125rem] text-ink-3">₹5,000 a month at an assumed 12% a year</p>
+              <table className="mt-4 w-full text-sm">
+                <thead>
+                  <tr className="border-b border-line">
+                    <th scope="col" className="t-label pb-2 text-left font-semibold">After</th>
+                    <th scope="col" className="t-label pb-2 text-right font-semibold">Invested</th>
+                    <th scope="col" className="t-label pb-2 text-right font-semibold">Value</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {COMPOUNDING_ROWS.map((row) => (
+                    <tr key={row.years} className="border-b border-line last:border-0">
+                      <td className="py-2.5 text-ink-2">{row.years} years</td>
+                      <td className="py-2.5 text-right text-ink-3">{row.invested}</td>
+                      <td className="py-2.5 text-right font-semibold text-pos">{row.value}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="rounded-lg border border-line bg-surface p-6">
+              <h3 className="t-h3 text-ink">Cost of inflation</h3>
+              <p className="mt-1 text-[0.8125rem] text-ink-3">What ₹1,00,000 buys at 6% annual inflation</p>
+              <table className="mt-4 w-full text-sm">
+                <tbody>
+                  {INFLATION_ROWS.map((row) => (
+                    <tr key={row.years} className="border-b border-line last:border-0">
+                      <td className="py-2.5 text-ink-2">In {row.years} years</td>
+                      <td className="py-2.5 text-right font-semibold text-neg">{row.value}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        {/* ----------------------------------------------------- Money habits */}
+        <div className="mt-16">
+          <h3 className="t-h3 text-ink">Money habits that compound</h3>
+          <p className="t-body measure mt-2 text-sm">
+            Small, repeatable decisions that do more for your net worth than picking the right fund.
+          </p>
+
+          <ul className="mt-5 grid gap-px overflow-hidden rounded-lg border border-line bg-line sm:grid-cols-2 lg:grid-cols-4">
+            {SAVINGS_TIPS.map((tip) => (
+              <li key={tip.title} className="bg-surface">
                 <a
-                  key={index}
                   href={safeExternalUrl(tip.link)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="block outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent rounded-lg shrink-0 w-[calc(100%)] md:w-[calc(50%-0.75rem)] lg:w-[calc(33.333%-1rem)]"
+                  className="group flex h-full flex-col p-5 transition-colors duration-[120ms] hover:bg-surface-2"
                 >
-                  <Card className="flex flex-col h-full hover:shadow-lg transition-shadow duration-300">
-                    <CardHeader>
-                      <div className="flex items-start justify-between mb-2">
-                        <Badge variant={tip.impact === 'High' ? 'default' : 'secondary'} className="bg-accent-soft text-pos dark:bg-accent-soft dark:text-pos">
-                          {tip.impact} Impact
-                        </Badge>
-                      </div>
-                      <CardTitle className="text-lg line-clamp-2" title={tip.title}>{tip.title}</CardTitle>
-                    </CardHeader>
-                    <CardContent className="flex-grow">
-                      <CardDescription className="line-clamp-3 text-sm text-foreground/80">
-                        {tip.tip}
-                      </CardDescription>
-                    </CardContent>
-                    <CardFooter className="pt-4 border-t border-line">
-                      <div className="text-sm text-pos hover:text-pos dark:hover:text-pos font-medium flex items-center w-full justify-between">
-                        Read Full Strategy
-                        <ExternalLink className="h-4 w-4 ml-1" />
-                      </div>
-                    </CardFooter>
-                  </Card>
+                  <span
+                    className={`w-fit rounded-sm px-1.5 py-0.5 text-[0.6875rem] font-medium ${IMPACT_STYLE[tip.impact]}`}
+                  >
+                    {tip.impact} impact
+                  </span>
+                  <span className="mt-3 text-sm font-medium text-ink">{tip.title}</span>
+                  <span className="mt-1.5 flex-1 text-[0.8125rem] leading-relaxed text-ink-3">{tip.tip}</span>
+                  <span className="mt-4 inline-flex items-center gap-1 text-[0.8125rem] font-medium text-ink-2 group-hover:text-accent">
+                    Learn more
+                    <ArrowUpRight aria-hidden="true" className="h-3.5 w-3.5" />
+                    <span className="sr-only"> about {tip.title.toLowerCase()} (opens in a new tab)</span>
+                  </span>
                 </a>
-              ))}
-            </div>
-          </div>
-
-          {/* Carousel Indicators */}
-          <div className="flex justify-center mt-6 gap-2">
-            {savingsTips.map((_, idx) => (
-              <button
-                key={idx}
-                onClick={() => setCurrentSlide(idx)}
-                className={`w-2.5 h-2.5 rounded-full transition-colors ${idx === currentSlide
-                  ? 'bg-accent w-8'
-                  : 'bg-line-2 dark:bg-ink-3 hover:bg-pos'
-                  }`}
-                aria-label={`Go to slide ${idx + 1}`}
-              />
+              </li>
             ))}
-          </div>
-        </div>
-
-        {/* Market Trends */}
-        <div className="mb-16">
-          <h3 className="text-2xl mb-6 flex items-center">
-            <TrendingUp className="h-6 w-6 mr-2 text-ink-2" />
-            Live Market Trends
-            <span className="ml-3 flex h-3 w-3 relative">
-              {isLiveBlinking && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-neg opacity-75"></span>}
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-neg"></span>
-            </span>
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {marketTrends.map((trend, index) => (
-              <Card key={index} className="flex flex-col h-full hover:shadow-lg transition-shadow duration-300">
-                <CardHeader>
-                  <div className="flex items-start justify-between mb-2">
-                    <Badge variant={trend.trend === 'Bullish' || trend.trend === 'Positive' ? 'default' :
-                      trend.trend === 'Stable' ? 'secondary' : trend.trend === 'Loading...' ? 'outline' : 'destructive'}
-                      className="bg-secondary text-ink-2 dark:bg-secondary dark:text-ink-2">
-                      {trend.trend}
-                    </Badge>
-                  </div>
-                  <CardTitle className="text-lg line-clamp-1">{trend.title}</CardTitle>
-                </CardHeader>
-                <CardContent className="flex-grow flex flex-col justify-center">
-                  <div className="flex flex-col items-start mb-2">
-                    <span className="t-figure text-3xl text-ink">
-                      {trend.value !== null
-                        ? `${trend.prefix || ''}${trend.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}${trend.suffix || ''}`
-                        : '--'}
-                    </span>
-                    <span className={`text-sm font-medium flex items-center mt-1 ${trend.color}`}>
-                      {trend.change} {trend.trend === 'Bullish' || trend.trend === 'Positive' ? 'â†‘' : trend.trend === 'Stable' || trend.trend === 'Loading...' ? 'âˆ’' : 'â†“'}
-                    </span>
-                  </div>
-                  <CardDescription className="line-clamp-2 mt-2">
-                    {trend.description}
-                  </CardDescription>
-                </CardContent>
-                <CardFooter className="pt-4 border-t border-line">
-                  <div className="text-xs text-ink-3 flex items-center w-full justify-between">
-                    Live Status
-                    {isLiveBlinking && trend.id !== 'FD' ? (
-                      <span className="flex items-center text-pos">
-                        <span className="relative flex h-2 w-2 mr-1">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-pos opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-2 w-2 bg-pos"></span>
-                        </span>
-                        Syncing...
-                      </span>
-                    ) : (
-                      <span>Updated</span>
-                    )}
-                  </div>
-                </CardFooter>
-              </Card>
-            ))}
-          </div>
-        </div>
-
-        {/* Growth Visuals */}
-        <div>
-          <h3 className="text-2xl mb-6 flex items-center">
-            <BarChart3 className="h-6 w-6 mr-2 text-ink-2" />
-            Growth Scenarios
-          </h3>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {growthVisuals.map((visual, index) => (
-              <Card key={index} className="hover:shadow-lg transition-shadow duration-300">
-                <CardHeader>
-                  <CardTitle>{visual.title}</CardTitle>
-                  <CardDescription>{visual.description}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {visual.years.map((data, yearIndex) => (
-                      <div key={yearIndex} className="flex items-center justify-between p-3 bg-surface-2 rounded-lg">
-                        <span className="font-medium">{data.year} Years</span>
-                        <span className={`font-bold ${index === 0 ? 'text-pos' : 'text-neg'}`}>
-                          {data.amount}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          </ul>
         </div>
       </div>
     </section>

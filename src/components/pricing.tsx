@@ -1,7 +1,6 @@
-import { Check, Sparkles } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
+import { Check } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from './ui/button';
-import { Badge } from './ui/badge';
 
 interface Plan {
   id: 'free' | 'plus' | 'pro';
@@ -24,9 +23,9 @@ const PLANS: Plan[] = [
       'SIP, Mutual Fund & EMI calculators',
       'Live market ticker & news',
       '5 AI assistant messages / day',
-      'No saved history',
+      'No account needed',
     ],
-    cta: 'Current Plan',
+    cta: 'Start free',
   },
   {
     id: 'plus',
@@ -61,83 +60,79 @@ const PLANS: Plan[] = [
   },
 ];
 
-export function Pricing() {
+interface PricingProps {
+  onNavigateToCalculators: (tabValue?: string) => void;
+}
+
+export function Pricing({ onNavigateToCalculators }: PricingProps) {
+  const handleSelect = (plan: Plan) => {
+    if (plan.id === 'free') {
+      onNavigateToCalculators('sip');
+      return;
+    }
+    // Checkout isn't wired up yet. Plug in Stripe Checkout / Razorpay
+    // Subscriptions here, and gate the features above behind the user's plan
+    // with a server-side entitlement check (see README "Subscriptions").
+    toast(`${plan.name} is coming soon`, {
+      description: 'Paid plans are not open yet. Everything in Free is available now.',
+    });
+  };
+
   return (
-    <section className="px-5 py-20 sm:px-8 md:py-24 bg-white dark:bg-canvas border-b border-line">
-      <div className="max-w-6xl mx-auto">
-        <div className="max-w-2xl mb-12">
-          <h2 className="t-h2 text-ink mb-4">
-            Simple, transparent pricing
-          </h2>
-          <p className="t-body">
+    <section className="border-b border-line bg-surface">
+      <div className="mx-auto max-w-6xl px-5 py-20 sm:px-8 md:py-24">
+        <header className="max-w-2xl">
+          <h2 className="t-h2 text-ink">Simple, transparent pricing</h2>
+          <p className="t-body mt-3">
             Start free. Upgrade when you want to save your plans, track goals, or go deeper.
           </p>
-        </div>
+        </header>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 items-stretch">
+        <ul className="mt-12 grid items-stretch gap-6 md:grid-cols-3">
           {PLANS.map((plan) => (
-            <Card
+            <li
               key={plan.id}
-              className={`relative flex flex-col ${
-                plan.highlighted
-                  ? 'border-2 border-accent shadow-md scale-100 md:scale-105'
-                  : 'border-line dark:border-line'
+              className={`relative flex flex-col rounded-lg border bg-surface p-7 ${
+                plan.highlighted ? 'border-accent shadow-[var(--shadow-md)] ring-1 ring-accent' : 'border-line'
               }`}
             >
-              {plan.highlighted && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <Badge className="bg-accent text-white border-none px-3 py-1 flex items-center gap-1">
-                    <Sparkles className="h-3 w-3" /> Most Popular
-                  </Badge>
-                </div>
-              )}
-              <CardHeader className="text-center pb-2">
-                <CardTitle className="text-2xl">{plan.name}</CardTitle>
-                <div className="mt-2">
-                  <span className="t-figure text-4xl text-ink">{plan.price}</span>
-                  {plan.period && <span className="text-ink-3">{plan.period}</span>}
-                </div>
-                <CardDescription className="mt-2">{plan.description}</CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-col flex-1">
-                <ul className="space-y-3 mb-8 flex-1">
-                  {plan.features.map((feature, idx) => (
-                    <li key={idx} className="flex items-start gap-2 text-sm text-ink-2">
-                      <Check className="h-4 w-4 text-pos mt-0.5 flex-shrink-0" />
-                      <span>{feature}</span>
-                    </li>
-                  ))}
-                </ul>
-                <Button
-                  className={`w-full ${
-                    plan.highlighted
-                      ? 'bg-accent hover:bg-accent-hover text-white'
-                      : ''
-                  }`}
-                  variant={plan.id === 'free' ? 'outline' : plan.highlighted ? 'default' : 'outline'}
-                  disabled={plan.id === 'free'}
-                  onClick={() => {
-                    // TODO: wire up real checkout. This is UI scaffolding only —
-                    // plug in Stripe Checkout / Razorpay Subscriptions here, and
-                    // gate the features above behind the user's plan (see README
-                    // "Subscriptions" section for the recommended architecture:
-                    // auth + a `subscriptions` table + a server-side entitlement
-                    // check, never a client-side-only flag).
-                    alert(
-                      `${plan.name} checkout isn't wired up yet — this is a UI placeholder. See README for how to connect Stripe/Razorpay.`
-                    );
-                  }}
-                >
-                  {plan.cta}
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="t-h3 text-ink">{plan.name}</h3>
+                {plan.highlighted && (
+                  <span className="rounded-sm bg-accent-soft px-2 py-0.5 text-[0.6875rem] font-semibold text-accent">
+                    Most popular
+                  </span>
+                )}
+              </div>
+              <p className="mt-1.5 min-h-10 text-[0.8125rem] leading-relaxed text-ink-3">{plan.description}</p>
 
-        <p className="text-center text-xs text-ink-3 mt-10 max-w-2xl mx-auto">
-          Prices shown in INR, illustrative. Paid plans are not yet active — this pricing page is a
-          design/UX placeholder pending payment integration.
+              <div className="mt-5 flex items-baseline gap-1">
+                <span className="t-figure text-[2.5rem] text-ink">{plan.price}</span>
+                <span className="text-sm text-ink-3">{plan.period ?? 'forever'}</span>
+              </div>
+
+              <Button
+                className="mt-6 w-full"
+                variant={plan.highlighted ? 'default' : 'outline'}
+                onClick={() => handleSelect(plan)}
+              >
+                {plan.cta}
+              </Button>
+
+              <ul className="mt-7 flex-1 space-y-3 border-t border-line pt-6">
+                {plan.features.map((feature) => (
+                  <li key={feature} className="flex items-start gap-2.5 text-sm text-ink-2">
+                    <Check aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
+                    <span>{feature}</span>
+                  </li>
+                ))}
+              </ul>
+            </li>
+          ))}
+        </ul>
+
+        <p className="mt-8 text-[0.75rem] text-ink-3">
+          Prices in INR. Paid plans are not yet open for sign-up.
         </p>
       </div>
     </section>

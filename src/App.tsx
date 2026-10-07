@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Navbar } from './components/navbar';
 import { LiveTicker } from './components/live-ticker';
 import { Hero } from './components/hero';
@@ -10,44 +10,58 @@ import { Footer } from './components/footer';
 import { ChatSection } from './components/chat-section';
 import { Toaster } from './components/ui/sonner';
 
+const SECTION_IDS = ['home', 'calculators', 'insights', 'chat', 'pricing', 'about'];
+
 export default function App() {
   const [activeSection, setActiveSection] = useState('home');
   const [activeCalculatorTab, setActiveCalculatorTab] = useState('sip');
 
-  const handleSectionChange = (section: string) => {
-    setActiveSection(section);
+  // Highlight the nav item for whichever section is in view while scrolling,
+  // not only after a nav click.
+  useEffect(() => {
+    if (typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+        if (visible) setActiveSection(visible.target.id);
+      },
+      // A band across the upper-middle of the viewport decides "current".
+      { rootMargin: '-30% 0px -60% 0px', threshold: [0, 0.25, 0.5, 1] }
+    );
+    SECTION_IDS.forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) observer.observe(el);
+    });
+    return () => observer.disconnect();
+  }, []);
 
-    // Map 'contact' to 'about' since they share a section
-    const scrollTarget = section === 'contact' ? 'about' : section;
-    const element = document.getElementById(scrollTarget);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth' });
-    }
+  const handleSectionChange = (section: string) => {
+    setActiveSection(section === 'contact' ? 'about' : section);
+    document.getElementById(section)?.scrollIntoView({ behavior: 'smooth' });
   };
 
   const handleNavigateToCalculators = (tabValue = 'sip') => {
     setActiveSection('calculators');
     setActiveCalculatorTab(tabValue);
-    const element = document.getElementById('calculators');
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth' });
-    }
+    document.getElementById('calculators')?.scrollIntoView({ behavior: 'smooth' });
   };
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Navigation */}
-      <Navbar
-        activeSection={activeSection}
-        onSectionChange={handleSectionChange}
-      />
+      <a
+        href="#calculators"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:rounded-md focus:bg-surface focus:px-4 focus:py-2 focus:text-sm focus:shadow-[var(--shadow-md)]"
+      >
+        Skip to calculators
+      </a>
 
-      {/* Live Market Ticker */}
+      <Navbar activeSection={activeSection} onSectionChange={handleSectionChange} />
+
       <LiveTicker />
 
-      {/* Main Content */}
       <main>
-        {/* Home Section */}
         <section id="home">
           <Hero
             onNavigateToCalculators={handleNavigateToCalculators}
@@ -55,44 +69,30 @@ export default function App() {
           />
         </section>
 
-        {/* Calculators Section */}
         <section id="calculators">
-          <Calculators
-            activeTab={activeCalculatorTab}
-            onTabChange={setActiveCalculatorTab}
-          />
+          <Calculators activeTab={activeCalculatorTab} onTabChange={setActiveCalculatorTab} />
         </section>
 
-        {/* Insights Section */}
         <section id="insights">
           <Insights />
         </section>
 
-        {/* Chat Section */}
         <section id="chat">
           <ChatSection onNavigateToCalculators={handleNavigateToCalculators} />
         </section>
 
-        {/* Pricing Section */}
         <section id="pricing">
-          <Pricing />
+          <Pricing onNavigateToCalculators={handleNavigateToCalculators} />
         </section>
 
-        {/* About Section */}
+        {/* Holds both About and Contact (#contact is inside it). */}
         <section id="about">
           <AboutContact />
         </section>
-
-        {/* Contact Section - Same component as About */}
-        <section id="contact">
-          {/* AboutContact component handles both about and contact */}
-        </section>
       </main>
 
-      {/* Footer */}
-      <Footer onSectionChange={handleSectionChange} />
+      <Footer onSectionChange={handleSectionChange} onNavigateToCalculators={handleNavigateToCalculators} />
 
-      {/* Toast Notifications */}
       <Toaster />
     </div>
   );

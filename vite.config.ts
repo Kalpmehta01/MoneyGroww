@@ -24,7 +24,7 @@ export default defineConfig({
     open: true,
     // Dev-only proxies (they do not exist in production builds): plain
     // `vite dev` doesn't run the Netlify functions, so these give the
-    // frontend a working same-origin path to Yahoo during development.
+    // frontend a working same-origin path to the market and news feeds during development.
     proxy: {
       '/yahoo-api': {
         target: 'https://query1.finance.yahoo.com',
@@ -32,11 +32,11 @@ export default defineConfig({
         secure: true,
         rewrite: (p) => p.replace(/^\/yahoo-api/, ''),
       },
-      '/yahoo-rss': {
-        target: 'https://finance.yahoo.com',
+      '/news-rss': {
+        target: 'https://www.livemint.com',
         changeOrigin: true,
         secure: true,
-        rewrite: (p) => p.replace(/^\/yahoo-rss/, ''),
+        rewrite: (p) => p.replace(/^\/news-rss/, ''),
       },
     },
   },
