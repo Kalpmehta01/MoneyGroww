@@ -11,7 +11,11 @@
 
 const GROQ_ENDPOINT = 'https://api.groq.com/openai/v1/chat/completions';
 const DEFAULT_MODEL = 'llama-3.3-70b-versatile';
+const { json, guard, fetchWithTimeout } = require('./_lib/security');
+
 const MAX_HISTORY_MESSAGES = 12; // keep request size/cost bounded
+const MAX_BODY_BYTES = 16 * 1024; // reject oversized payloads before parsing
+const MAX_TOTAL_CHARS = 8000;
 
 const SYSTEM_PROMPT = `You are MoneyGroww's AI financial assistant, helping Indian retail users understand
 personal finance concepts: SIPs, mutual funds, EMIs, tax saving, budgeting, and general investment
@@ -27,32 +31,38 @@ Hard rules:
 - Keep responses focused; avoid filler.`;
 
 exports.handler = async (event) => {
-  if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, body: JSON.stringify({ error: 'Method Not Allowed' }) };
+  // method + same-site origin + rate limit (10 requests/minute/IP, best effort)
+  const blocked = guard(event, { methods: ['POST'], name: 'chat', max: 10, windowMs: 60_000 });
+  if (blocked) return blocked;
+
+  const ctype = event.headers?.['content-type'] || event.headers?.['Content-Type'] || '';
+  if (!ctype.toLowerCase().includes('application/json')) {
+    return json(415, { error: 'Content-Type must be application/json' });
+  }
+  if (Buffer.byteLength(event.body || '', 'utf8') > MAX_BODY_BYTES) {
+    return json(413, { error: 'Request too large' });
   }
 
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) {
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: 'Server is not configured with a GROQ_API_KEY.' }),
-    };
+    console.error('GROQ_API_KEY is not set');
+    return json(500, { error: 'Assistant is temporarily unavailable.' });
   }
 
   let payload;
   try {
     payload = JSON.parse(event.body || '{}');
   } catch {
-    return { statusCode: 400, body: JSON.stringify({ error: 'Invalid JSON body' }) };
+    return json(400, { error: 'Invalid JSON body' });
   }
 
-  const { messages } = payload;
+  const { messages } = payload || {};
   if (!Array.isArray(messages) || messages.length === 0) {
-    return { statusCode: 400, body: JSON.stringify({ error: '"messages" array is required' }) };
+    return json(400, { error: '"messages" array is required' });
   }
 
   // Only forward well-formed {role, content} pairs, and cap history length.
-  const sanitized = messages
+  let sanitized = messages
     .filter(
       (m) =>
         m &&
@@ -63,46 +73,50 @@ exports.handler = async (event) => {
     .slice(-MAX_HISTORY_MESSAGES)
     .map((m) => ({ role: m.role, content: m.content.slice(0, 2000) }));
 
-  if (sanitized.length === 0) {
-    return { statusCode: 400, body: JSON.stringify({ error: 'No valid messages provided' }) };
+  // Cap total prompt size (cost control) by dropping the oldest messages.
+  while (sanitized.length > 1 && sanitized.reduce((n, m) => n + m.content.length, 0) > MAX_TOTAL_CHARS) {
+    sanitized = sanitized.slice(1);
+  }
+
+  if (sanitized.length === 0 || sanitized[sanitized.length - 1].role !== 'user') {
+    return json(400, { error: 'No valid messages provided' });
   }
 
   try {
-    const response = await fetch(GROQ_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
+    const response = await fetchWithTimeout(
+      GROQ_ENDPOINT,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: process.env.GROQ_MODEL || DEFAULT_MODEL,
+          messages: [{ role: 'system', content: SYSTEM_PROMPT }, ...sanitized],
+          temperature: 0.6,
+          max_tokens: 600,
+        }),
       },
-      body: JSON.stringify({
-        model: process.env.GROQ_MODEL || DEFAULT_MODEL,
-        messages: [{ role: 'system', content: SYSTEM_PROMPT }, ...sanitized],
-        temperature: 0.6,
-        max_tokens: 600,
-      }),
-    });
+      20000
+    );
 
     if (!response.ok) {
-      const detail = await response.text().catch(() => '');
-      return {
-        statusCode: 502,
-        body: JSON.stringify({ error: 'Groq API error', status: response.status, detail }),
-      };
+      // Log details server-side only; never echo upstream error bodies to the browser.
+      console.error('Groq API error', response.status, await response.text().catch(() => ''));
+      return json(502, { error: 'The assistant is temporarily unavailable.' });
     }
 
     const data = await response.json();
     const reply = data?.choices?.[0]?.message?.content;
 
     if (!reply) {
-      return { statusCode: 502, body: JSON.stringify({ error: 'Empty response from model' }) };
+      return json(502, { error: 'The assistant is temporarily unavailable.' });
     }
 
-    return {
-      statusCode: 200,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ reply }),
-    };
+    return json(200, { reply }, { 'Cache-Control': 'no-store' });
   } catch (err) {
-    return { statusCode: 502, body: JSON.stringify({ error: 'Failed to reach Groq API', detail: String(err) }) };
+    console.error('Failed to reach Groq API', err);
+    return json(502, { error: 'The assistant is temporarily unavailable.' });
   }
 };

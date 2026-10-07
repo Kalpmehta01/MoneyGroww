@@ -1,8 +1,27 @@
+# dependencies & build output
 node_modules/
 build/
 dist/
+coverage/
 .netlify/
+
+# secrets: never commit real environment files (the example file is fine)
 .env
-.env.local
-.DS_Store
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*secret*
+*credentials*
+service-account*.json
+
+# logs, OS & editor junk
 *.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

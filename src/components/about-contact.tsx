@@ -5,7 +5,7 @@ import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
 import { Button } from './ui/button';
 import { Label } from './ui/label';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 
 export function AboutContact() {
   const [formData, setFormData] = useState({
@@ -13,6 +13,7 @@ export function AboutContact() {
     email: '',
     message: ''
   });
+  const [honeypot, setHoneypot] = useState('');
   const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
 
   // Submits to Netlify Forms. The previous version showed a success toast
@@ -21,6 +22,17 @@ export function AboutContact() {
   // form-name field below must match its name attribute.
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (status === 'sending') return;
+
+    // Trim and re-validate on submit (HTML attributes alone can be bypassed).
+    const name = formData.name.trim().slice(0, 100);
+    const email = formData.email.trim().slice(0, 254);
+    const message = formData.message.trim().slice(0, 2000);
+    if (!name || !message || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setStatus('error');
+      toast.error('Please check your name, email and message.');
+      return;
+    }
     setStatus('sending');
 
     try {
@@ -29,7 +41,10 @@ export function AboutContact() {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({
           'form-name': 'contact',
-          ...formData,
+          name,
+          email,
+          message,
+          'bot-field': honeypot,
         }).toString(),
       });
 
@@ -192,9 +207,24 @@ export function AboutContact() {
                   name="contact"
                   method="POST"
                   data-netlify="true"
+                  data-netlify-honeypot="bot-field"
                   className="space-y-6"
                 >
                   <input type="hidden" name="form-name" value="contact" />
+                  {/* Honeypot: invisible to people, tempting to bots. */}
+                  <div aria-hidden="true" style={{ position: 'absolute', left: '-10000px' }}>
+                    <label>
+                      Leave this field empty
+                      <input
+                        type="text"
+                        name="bot-field"
+                        tabIndex={-1}
+                        autoComplete="off"
+                        value={honeypot}
+                        onChange={(e) => setHoneypot(e.target.value)}
+                      />
+                    </label>
+                  </div>
                   <div className="space-y-2">
                     <Label htmlFor="name">
                       Full name <span className="text-ink-3">(required)</span>
@@ -204,6 +234,7 @@ export function AboutContact() {
                       name="name"
                       type="text"
                       autoComplete="name"
+                      maxLength={100}
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       required
@@ -218,6 +249,7 @@ export function AboutContact() {
                       name="email"
                       type="email"
                       autoComplete="email"
+                      maxLength={254}
                       value={formData.email}
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                       required
@@ -231,6 +263,7 @@ export function AboutContact() {
                       id="message"
                       name="message"
                       rows={5}
+                      maxLength={2000}
                       value={formData.message}
                       onChange={(e) => setFormData({ ...formData, message: e.target.value })}
                       required

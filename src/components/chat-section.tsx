@@ -328,6 +328,7 @@ export function ChatSection({ onNavigateToCalculators }: ChatSectionProps) {
  value={inputMessage}
  onChange={(e) => setInputMessage(e.target.value)}
  onKeyDown={handleKeyPress}
+ 			maxLength={500}
  placeholder="Ask me anything about finance, investments, or use our calculators..."
  className="flex-1 border-muted-foreground/20 focus:border-accent transition-colors"
  disabled={isTyping}

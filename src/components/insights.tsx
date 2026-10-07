@@ -4,6 +4,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Badge } from './ui/badge';
 import { fetchNews, fetchMarketQuotes } from '../lib/market-api';
 
+// Only http(s) URLs may reach an href. Anything else (e.g. "javascript:")
+// from a feed or data file falls back to an inert "#".
+function safeExternalUrl(value: string): string {
+  try {
+    const u = new URL(value);
+    return u.protocol === 'https:' || u.protocol === 'http:' ? u.toString() : '#';
+  } catch {
+    return '#';
+  }
+}
+
 interface NewsArticle {
   title: string;
   pubDate: string;
@@ -303,7 +314,7 @@ export function Insights() {
                     </CardContent>
                     <CardFooter className="pt-4 border-t border-line">
                       <a
-                        href={article.link}
+                        href={safeExternalUrl(article.link)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-sm text-accent hover:text-accent dark:hover:text-accent font-medium flex items-center w-full justify-between"
@@ -352,7 +363,7 @@ export function Insights() {
               {savingsTips.map((tip, index) => (
                 <a
                   key={index}
-                  href={tip.link}
+                  href={safeExternalUrl(tip.link)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="block outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent rounded-lg shrink-0 w-[calc(100%)] md:w-[calc(50%-0.75rem)] lg:w-[calc(33.333%-1rem)]"
