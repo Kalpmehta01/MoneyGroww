@@ -20,6 +20,10 @@ export interface MarketQuote {
   symbol: string;
   price: number | null;
   prevClose: number | null;
+  /** ISO time of the quote, when known. */
+  asOf?: string;
+  /** True when the server returned its last good copy because a refresh failed. */
+  stale?: boolean;
   error?: boolean;
 }
 
@@ -55,22 +59,35 @@ async function fetchQuotesViaFunction(symbols: string[]): Promise<MarketQuote[] 
   }
 }
 
+async function fetchYahooViaDevProxy(symbol: string) {
+  const response = await fetch(`/yahoo-api/v8/finance/chart/${encodeURIComponent(symbol)}`);
+  if (!response.ok) throw new Error(String(response.status));
+  const data = await response.json();
+  const meta = data?.chart?.result?.[0]?.meta;
+  if (!meta || typeof meta.regularMarketPrice !== 'number') throw new Error('no price');
+  return {
+    price: meta.regularMarketPrice as number,
+    prevClose: (meta.chartPreviousClose ?? null) as number | null,
+    asOf: meta.regularMarketTime ? new Date(meta.regularMarketTime * 1000).toISOString() : undefined,
+  };
+}
+
 async function fetchQuotesViaDevProxy(symbols: string[]): Promise<MarketQuote[]> {
   return Promise.all(
     symbols.map(async (symbol): Promise<MarketQuote> => {
       try {
-        const response = await fetch(`/yahoo-api/v8/finance/chart/${encodeURIComponent(symbol)}`);
-        if (!response.ok) return { symbol, price: null, prevClose: null, error: true };
-
-        const data = await response.json();
-        const meta = data?.chart?.result?.[0]?.meta;
-        if (!meta) return { symbol, price: null, prevClose: null, error: true };
-
-        return {
-          symbol,
-          price: meta.regularMarketPrice ?? null,
-          prevClose: meta.chartPreviousClose ?? null,
-        };
+        if (symbol === 'GOLD_INR_10G') {
+          // Same derivation as netlify/functions/market-data.js.
+          const [gold, fx] = await Promise.all([fetchYahooViaDevProxy('GC=F'), fetchYahooViaDevProxy('INR=X')]);
+          const per10g = (oz: number, inrPerUsd: number) => (oz * inrPerUsd * 10) / 31.1034768;
+          return {
+            symbol,
+            price: per10g(gold.price, fx.price),
+            prevClose: gold.prevClose && fx.prevClose ? per10g(gold.prevClose, fx.prevClose) : null,
+            asOf: gold.asOf,
+          };
+        }
+        return { symbol, ...(await fetchYahooViaDevProxy(symbol)) };
       } catch {
         return { symbol, price: null, prevClose: null, error: true };
       }

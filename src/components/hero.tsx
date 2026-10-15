@@ -1,44 +1,64 @@
 import { ArrowRight } from 'lucide-react';
 import { Button } from './ui/button';
-import { calculateSIP, safePercent } from '../lib/finance';
+import { honestProjection, safePercent } from '../lib/finance';
+import { inr } from '../lib/format';
+import { DEFAULT_INFLATION } from '../data/reference-rates';
 
 interface HeroProps {
   onNavigateToCalculators: (tabValue?: string) => void;
   onSectionChange: (section: string) => void;
 }
 
-const EXAMPLE = { monthlyInvestment: 5000, returnRate: 12, duration: 10 };
+// The same inputs the SIP calculator starts from, so the hero can never show
+// a number the calculator would not.
+const EXAMPLE = {
+  monthly: 5000,
+  years: 10,
+  returnPct: 12,
+  costPct: 1,
+  tax: 'equity' as const,
+  inflationPct: DEFAULT_INFLATION,
+};
+
 const CALCULATORS = [
-  { tab: 'sip', name: 'SIP', description: 'Monthly investing, compounded over time' },
-  { tab: 'mutual-fund', name: 'Mutual Fund', description: 'Growth on a one-time lumpsum' },
-  { tab: 'emi', name: 'EMI', description: 'Loan repayment, principal vs interest' },
+  { tab: 'goal', name: 'Goal planner', description: 'How much to invest each month for a goal' },
+  { tab: 'sip', name: 'Monthly SIP', description: 'What regular investing really becomes' },
+  { tab: 'emi', name: 'Loan / EMI', description: 'The true cost of a loan, and how to cut it' },
+  { tab: 'swp', name: 'Withdrawals', description: 'How long your savings will last' },
 ];
 
-const inr = (value: number) =>
-  `₹${value.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
-
 export function Hero({ onNavigateToCalculators, onSectionChange }: HeroProps) {
-  const example = calculateSIP(EXAMPLE);
-  const gainsShare = safePercent(example.gains, example.finalAmount);
+  const r = honestProjection(EXAMPLE);
+  const realShare = safePercent(r.todaysMoney, r.headlineValue);
 
   return (
     <section className="border-b border-line bg-canvas">
       <div className="mx-auto max-w-6xl px-5 pt-20 pb-20 sm:px-8 md:pt-28">
         <div className="grid items-center gap-14 lg:grid-cols-[1.05fr_0.95fr] lg:gap-20">
           <div>
-            <h1 className="t-display text-ink">Know what your<br />money becomes.</h1>
+            <h1 className="t-display text-ink">
+              What your money
+              <br />
+              is really worth.
+            </h1>
             <p className="measure t-body mt-6 text-[1.0625rem]">
-              SIP, mutual fund and loan calculators that show the full picture - what
-              you put in, what compounding adds, and what it costs you. Built for
-              Indian investors, with live market data alongside.
+              Most calculators show a big number and stop. MoneyGroww also takes out fund costs, tax and rising prices, so
+              you can plan with the amount you will actually be able to spend. Free, no sign-up.
             </p>
             <div className="mt-9 flex flex-wrap items-center gap-3">
-              <Button size="lg" onClick={() => onNavigateToCalculators('sip')}>
+              <Button size="lg" onClick={() => onNavigateToCalculators('goal')}>
+                Plan a goal
+              </Button>
+              <Button size="lg" variant="outline" onClick={() => onNavigateToCalculators('sip')}>
                 Open calculators
               </Button>
-              <Button size="lg" variant="outline" onClick={() => onSectionChange('chat')}>
-                Ask the assistant
-              </Button>
+              <button
+                type="button"
+                onClick={() => onSectionChange('chat')}
+                className="px-2 text-sm font-medium text-ink-2 underline-offset-4 hover:text-accent hover:underline"
+              >
+                Ask a question
+              </button>
             </div>
           </div>
 
@@ -46,38 +66,52 @@ export function Hero({ onNavigateToCalculators, onSectionChange }: HeroProps) {
             <div className="flex items-baseline justify-between gap-4">
               <span className="t-label">Example SIP</span>
               <span className="text-[0.8125rem] text-ink-3 tabular">
-                {inr(EXAMPLE.monthlyInvestment)}/mo · {EXAMPLE.duration} yrs · {EXAMPLE.returnRate}%
+                {inr(EXAMPLE.monthly)}/mo · {EXAMPLE.years} yrs · {EXAMPLE.returnPct}%
               </span>
             </div>
-            <div className="mt-6">
-              <div className="t-figure text-[2.75rem] text-ink">{inr(example.finalAmount)}</div>
-              <p className="mt-1.5 text-sm text-ink-3">Projected value after {EXAMPLE.duration} years</p>
-            </div>
-            <div className="mt-7 flex h-2.5 gap-[2px] overflow-hidden rounded-full">
-              <div className="rounded-l-full bg-series-1" style={{ width: `${100 - gainsShare}%` }} />
-              <div className="rounded-r-full bg-series-2" style={{ width: `${gainsShare}%` }} />
-            </div>
-            <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-1">
-              <div className="border-t border-line pt-3">
-                <dt className="flex items-center gap-1.5 text-[0.8125rem] text-ink-3">
-                  <span aria-hidden="true" className="h-2 w-2 rounded-full bg-series-1" /> You invest
-                </dt>
-                <dd className="t-figure mt-1 text-lg text-ink">{inr(example.totalInvested)}</dd>
+
+            <div className="mt-6 grid grid-cols-2 gap-6">
+              <div>
+                <p className="text-[0.8125rem] text-ink-3">What most calculators show</p>
+                <div className="t-figure mt-1 text-2xl text-ink-3 line-through decoration-1">{inr(r.headlineValue)}</div>
               </div>
-              <div className="border-t border-line pt-3">
-                <dt className="flex items-center gap-1.5 text-[0.8125rem] text-ink-3">
-                  <span aria-hidden="true" className="h-2 w-2 rounded-full bg-series-2" /> Compounding adds
-                </dt>
-                <dd className="t-figure mt-1 text-lg text-ink">{inr(example.gains)}</dd>
+              <div>
+                <p className="text-[0.8125rem] font-medium text-ink">What it is really worth</p>
+                <div className="t-figure mt-1 text-[2.25rem] leading-none text-ink">{inr(r.todaysMoney)}</div>
+              </div>
+            </div>
+
+            <div className="mt-6 flex h-2.5 gap-[2px] overflow-hidden rounded-full" aria-hidden="true">
+              <div className="rounded-l-full bg-accent" style={{ width: `${realShare}%` }} />
+              <div className="rounded-r-full bg-secondary" style={{ width: `${100 - realShare}%` }} />
+            </div>
+
+            <dl className="mt-5 space-y-2 text-sm">
+              <div className="flex justify-between gap-4">
+                <dt className="text-ink-2">You put in</dt>
+                <dd className="tabular text-ink">{inr(r.invested)}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-ink-2">Fund costs (1% a year)</dt>
+                <dd className="tabular text-neg">−{inr(r.costDrag)}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-ink-2">Tax on withdrawal</dt>
+                <dd className="tabular text-neg">−{inr(r.tax)}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-ink-2">Prices rise {EXAMPLE.inflationPct}% a year</dt>
+                <dd className="tabular text-neg">−{inr(r.inHand - r.todaysMoney)}</dd>
               </div>
             </dl>
             <p className="mt-6 text-[0.75rem] leading-relaxed text-ink-3">
-              Illustration at an assumed {EXAMPLE.returnRate}% annual return. Actual returns vary and are not guaranteed.
+              Equity fund at an assumed {EXAMPLE.returnPct}% a year, FY 2026-27 tax rules. That gap is why costs, tax and
+              inflation matter as much as the return itself. Returns are not guaranteed.
             </p>
           </div>
         </div>
 
-        <ul className="mt-16 grid gap-px overflow-hidden rounded-lg border border-line bg-line sm:grid-cols-3">
+        <ul className="mt-16 grid gap-px overflow-hidden rounded-lg border border-line bg-line sm:grid-cols-2 lg:grid-cols-4">
           {CALCULATORS.map((calculator) => (
             <li key={calculator.tab}>
               <button

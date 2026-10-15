@@ -49,9 +49,10 @@ function parseFeed(xml, source) {
     // must never reach an <a href> in the browser.
     const link = safeHttpUrl(extractTag(block, 'link'));
     const pubDate = extractTag(block, 'pubDate').slice(0, 64);
-    const description = extractTag(block, 'description').slice(0, 600);
+    // Headline + link only, with attribution. Article summaries are not
+    // republished; readers go to the publisher for the story.
     if (title && link) {
-      items.push({ title, link, pubDate, description, source, thumbnail: '' });
+      items.push({ title, link, pubDate, description: '', source, thumbnail: '' });
     }
   }
   return items;
