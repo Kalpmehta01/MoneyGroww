@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { ArrowUp, RotateCcw, Calculator } from 'lucide-react';
+import { ArrowUp, RotateCcw, Calculator, Link2 } from 'lucide-react';
 import { Button } from './ui/button';
 import { getFallbackResponse } from '../lib/chat-fallback';
+import type { CalcSnapshot } from './calculators';
 
 interface Message {
   id: number;
@@ -13,7 +14,27 @@ interface Message {
 
 interface ChatSectionProps {
   onNavigateToCalculators: (tabValue?: string) => void;
+  /** Figures from the calculator in view, computed by the tested finance code. */
+  snapshot?: CalcSnapshot | null;
+  /** A question sent from elsewhere on the page (e.g. a tip card). */
+  pendingQuestion?: string | null;
+  onPendingQuestionHandled?: () => void;
 }
+
+type Lang = 'en' | 'hi' | 'gu';
+const LANGS: { id: Lang; label: string }[] = [
+  { id: 'en', label: 'English' },
+  { id: 'hi', label: 'हिंदी' },
+  { id: 'gu', label: 'ગુજરાતી' },
+];
+
+const TOOL_NAMES: Record<CalcSnapshot['tool'], string> = {
+  sip: 'Monthly SIP',
+  goal: 'Goal planner',
+  lumpsum: 'One-time investment',
+  emi: 'Loan / EMI',
+  swp: 'Withdrawals',
+};
 
 const WELCOME: Message = {
   id: 0,
@@ -21,13 +42,15 @@ const WELCOME: Message = {
   isBot: true,
 };
 
+// Explainers only. Questions like "which fund should I buy?" ask for the
+// personalised advice the assistant is not allowed to give.
 const SUGGESTIONS = [
-  'How does compounding work?',
-  'SIP or lumpsum — which is better?',
-  'How big should my emergency fund be?',
-  'What are my options under Section 80C?',
-  'How do I estimate my retirement corpus?',
-  'Explain the 50-30-20 rule',
+  'Explain my calculator result in simple words',
+  'Why is the “today’s money” figure so much lower?',
+  'What is a step-up SIP?',
+  'How big should an emergency fund be?',
+  'Old vs new tax regime: what is the difference?',
+  'What is an expense ratio, and why does it matter?',
 ];
 
 /* -------------------------------------------------------------------------- */
@@ -110,7 +133,10 @@ function RichText({ text }: { text: string }) {
 
 /* -------------------------------------------------------------------------- */
 
-async function getAIResponse(history: Message[]): Promise<{ text: string; offline: boolean }> {
+async function getAIResponse(
+  history: Message[],
+  options: { snapshot: CalcSnapshot | null; lang: Lang }
+): Promise<{ text: string; offline: boolean }> {
   const last = history[history.length - 1];
   try {
     const response = await fetch('/.netlify/functions/chat', {
@@ -120,6 +146,8 @@ async function getAIResponse(history: Message[]): Promise<{ text: string; offlin
         messages: history
           .filter((m) => m.id !== WELCOME.id)
           .map((m) => ({ role: m.isBot ? 'assistant' : 'user', content: m.text })),
+        context: options.snapshot ?? undefined,
+        lang: options.lang,
       }),
     });
     const isJson = (response.headers.get('content-type') || '').includes('application/json');
@@ -134,14 +162,16 @@ async function getAIResponse(history: Message[]): Promise<{ text: string; offlin
     // Offline, `vite dev` without `netlify dev`, missing API key, rate limit…
     // answer from the built-in responder rather than showing an error.
     console.warn('Falling back to rule-based response:', err);
-    return { text: getFallbackResponse(last.text), offline: true };
+    return { text: getFallbackResponse(last.text, options.snapshot), offline: true };
   }
 }
 
-export function ChatSection({ onNavigateToCalculators }: ChatSectionProps) {
+export function ChatSection({ onNavigateToCalculators, snapshot = null, pendingQuestion, onPendingQuestionHandled }: ChatSectionProps) {
   const [messages, setMessages] = useState<Message[]>([WELCOME]);
   const [input, setInput] = useState('');
   const [pending, setPending] = useState(false);
+  const [lang, setLang] = useState<Lang>('en');
+  const [useNumbers, setUseNumbers] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -169,11 +199,19 @@ export function ChatSection({ onNavigateToCalculators }: ChatSectionProps) {
     setInput('');
     setPending(true);
 
-    const reply = await getAIResponse(history);
+    const reply = await getAIResponse(history, { snapshot: useNumbers ? snapshot : null, lang });
     setMessages((prev) => [...prev, { id: Date.now() + 1, text: reply.text, isBot: true, offline: reply.offline }]);
     setPending(false);
     inputRef.current?.focus();
   };
+
+  // Questions sent from tip cards elsewhere on the page.
+  useEffect(() => {
+    if (pendingQuestion && !pending) {
+      send(pendingQuestion);
+      onPendingQuestionHandled?.();
+    }
+  }, [pendingQuestion]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const reset = () => {
     setMessages([WELCOME]);
@@ -189,8 +227,8 @@ export function ChatSection({ onNavigateToCalculators }: ChatSectionProps) {
         <header className="max-w-2xl">
           <h2 className="t-h2 text-ink">Ask the assistant</h2>
           <p className="t-body mt-3">
-            Plain-language answers to personal finance questions, from how SIPs compound to what
-            Section 80C covers. It explains concepts; it does not recommend specific funds or stocks.
+            Plain-language answers about saving, investing, loans and tax. It can explain the numbers in the
+            calculator you just used. It teaches; it never tells you which fund, stock or product to buy.
           </p>
         </header>
 
@@ -281,8 +319,41 @@ export function ChatSection({ onNavigateToCalculators }: ChatSectionProps) {
               )}
             </div>
 
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line px-3 pt-2.5">
+              {snapshot ? (
+                <label className="flex cursor-pointer items-center gap-1.5 text-[0.75rem] text-ink-2">
+                  <input
+                    type="checkbox"
+                    checked={useNumbers}
+                    onChange={(e) => setUseNumbers(e.target.checked)}
+                    className="h-3.5 w-3.5 accent-[var(--accent)]"
+                  />
+                  <Link2 aria-hidden="true" className="h-3.5 w-3.5 text-ink-3" />
+                  Use my {TOOL_NAMES[snapshot.tool]} numbers
+                </label>
+              ) : (
+                <span />
+              )}
+              <div role="radiogroup" aria-label="Reply language" className="flex items-center gap-1">
+                {LANGS.map((l) => (
+                  <button
+                    key={l.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={lang === l.id}
+                    onClick={() => setLang(l.id)}
+                    className={`rounded-full px-2.5 py-1 text-[0.75rem] transition-colors duration-[120ms] ${
+                      lang === l.id ? 'bg-accent-soft font-medium text-accent' : 'text-ink-3 hover:text-ink'
+                    }`}
+                  >
+                    {l.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <form
-              className="border-t border-line p-3"
+              className="p-3"
               onSubmit={(e) => {
                 e.preventDefault();
                 send();
@@ -346,7 +417,8 @@ export function ChatSection({ onNavigateToCalculators }: ChatSectionProps) {
             <div className="rounded-lg border border-line bg-surface p-5">
               <h3 className="t-h3 text-ink">Run your own numbers</h3>
               <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-ink-3">
-                Answers use general examples. The calculators show what your exact amounts become.
+                Any rupee figure the assistant quotes comes from the calculators, which are tested against public reference
+                calculators. It is told never to do its own arithmetic.
               </p>
               <Button variant="outline" className="mt-4 w-full" onClick={() => onNavigateToCalculators('sip')}>
                 <Calculator aria-hidden="true" />

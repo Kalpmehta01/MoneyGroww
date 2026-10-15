@@ -10,9 +10,11 @@ export function Footer({ onSectionChange, onNavigateToCalculators }: FooterProps
     {
       heading: 'Calculators',
       links: [
+        { label: 'Goal planner', onClick: () => onNavigateToCalculators('goal') },
         { label: 'SIP calculator', onClick: () => onNavigateToCalculators('sip') },
-        { label: 'Mutual fund calculator', onClick: () => onNavigateToCalculators('mutual-fund') },
-        { label: 'EMI calculator', onClick: () => onNavigateToCalculators('emi') },
+        { label: 'One-time investment', onClick: () => onNavigateToCalculators('lumpsum') },
+        { label: 'Loan / EMI and prepayment', onClick: () => onNavigateToCalculators('emi') },
+        { label: 'Withdrawals (SWP)', onClick: () => onNavigateToCalculators('swp') },
       ],
     },
     {
@@ -20,7 +22,7 @@ export function Footer({ onSectionChange, onNavigateToCalculators }: FooterProps
       links: [
         { label: 'Market & insights', onClick: () => onSectionChange('insights') },
         { label: 'Ask the assistant', onClick: () => onSectionChange('chat') },
-        { label: 'Pricing', onClick: () => onSectionChange('pricing') },
+        { label: 'Early access', onClick: () => onSectionChange('early-access') },
       ],
     },
     {
@@ -53,7 +55,7 @@ export function Footer({ onSectionChange, onNavigateToCalculators }: FooterProps
               <span className="text-[0.9375rem] font-semibold tracking-[-0.01em]">MoneyGroww</span>
             </button>
             <p className="mt-4 max-w-xs text-[0.8125rem] leading-relaxed text-ink-3">
-              Clear calculators and live market context for Indian investors.
+              Honest money planning for Indian families: real, after-tax numbers in today’s rupees.
             </p>
             <a
               href="mailto:support@moneygroww.com"
@@ -84,11 +86,13 @@ export function Footer({ onSectionChange, onNavigateToCalculators }: FooterProps
 
         <div className="mt-12 border-t border-line pt-6">
           <p className="text-[0.75rem] leading-relaxed text-ink-3">
-            <span className="font-medium text-ink-2">Disclaimer.</span> Calculations and projections
-            on MoneyGroww are for illustration only and are not investment advice. MoneyGroww is not a
-            SEBI-registered investment adviser. Mutual fund investments are subject to market risks;
-            read all scheme-related documents carefully. Past performance does not guarantee future
-            results. Consult a qualified financial adviser before making investment decisions.
+            <span className="font-medium text-ink-2">Important.</span> MoneyGroww is an educational
+            tool. It is not registered with SEBI as an investment adviser or research analyst, and it does
+            not recommend, sell or distribute any fund, stock or financial product. Calculations are
+            illustrations based on the assumptions shown, not promises of returns. Tax figures use rules for
+            FY 2026-27 and ignore surcharge and individual circumstances. Mutual fund investments are subject
+            to market risks; read all scheme-related documents carefully. For advice on your own situation,
+            speak to a SEBI-registered investment adviser.
           </p>
           <p className="mt-4 text-[0.75rem] text-ink-3">© {year} MoneyGroww. All rights reserved.</p>
         </div>

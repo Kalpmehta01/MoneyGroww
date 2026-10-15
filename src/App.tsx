@@ -1,20 +1,23 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Navbar } from './components/navbar';
-import { LiveTicker } from './components/live-ticker';
 import { Hero } from './components/hero';
-import { Calculators } from './components/calculators';
+import { Calculators, type CalcSnapshot } from './components/calculators';
 import { Insights } from './components/insights';
-import { Pricing } from './components/pricing';
+import { EarlyAccess } from './components/early-access';
 import { AboutContact } from './components/about-contact';
 import { Footer } from './components/footer';
 import { ChatSection } from './components/chat-section';
 import { Toaster } from './components/ui/sonner';
 
-const SECTION_IDS = ['home', 'calculators', 'insights', 'chat', 'pricing', 'about'];
+const SECTION_IDS = ['home', 'calculators', 'insights', 'chat', 'early-access', 'about'];
 
 export default function App() {
   const [activeSection, setActiveSection] = useState('home');
   const [activeCalculatorTab, setActiveCalculatorTab] = useState('sip');
+  // Latest figures from the calculator in view, computed by the tested
+  // finance code. The assistant explains these instead of doing its own maths.
+  const [calcSnapshot, setCalcSnapshot] = useState<CalcSnapshot | null>(null);
+  const [pendingQuestion, setPendingQuestion] = useState<string | null>(null);
 
   // Highlight the nav item for whichever section is in view while scrolling,
   // not only after a nav click.
@@ -48,6 +51,13 @@ export default function App() {
     document.getElementById('calculators')?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  const handleAsk = (question?: string) => {
+    if (question) setPendingQuestion(question);
+    handleSectionChange('chat');
+  };
+
+  const handleSnapshot = useCallback((s: CalcSnapshot) => setCalcSnapshot(s), []);
+
   return (
     <div className="min-h-screen bg-background">
       <a
@@ -59,30 +69,30 @@ export default function App() {
 
       <Navbar activeSection={activeSection} onSectionChange={handleSectionChange} />
 
-      <LiveTicker />
-
       <main>
         <section id="home">
-          <Hero
-            onNavigateToCalculators={handleNavigateToCalculators}
-            onSectionChange={handleSectionChange}
-          />
+          <Hero onNavigateToCalculators={handleNavigateToCalculators} onSectionChange={handleSectionChange} />
         </section>
 
         <section id="calculators">
-          <Calculators activeTab={activeCalculatorTab} onTabChange={setActiveCalculatorTab} />
+          <Calculators activeTab={activeCalculatorTab} onTabChange={setActiveCalculatorTab} onSnapshot={handleSnapshot} />
         </section>
 
         <section id="insights">
-          <Insights />
+          <Insights onNavigateToCalculators={handleNavigateToCalculators} onAsk={handleAsk} />
         </section>
 
         <section id="chat">
-          <ChatSection onNavigateToCalculators={handleNavigateToCalculators} />
+          <ChatSection
+            onNavigateToCalculators={handleNavigateToCalculators}
+            snapshot={calcSnapshot}
+            pendingQuestion={pendingQuestion}
+            onPendingQuestionHandled={() => setPendingQuestion(null)}
+          />
         </section>
 
-        <section id="pricing">
-          <Pricing onNavigateToCalculators={handleNavigateToCalculators} />
+        <section id="early-access">
+          <EarlyAccess />
         </section>
 
         {/* Holds both About and Contact (#contact is inside it). */}

@@ -17,18 +17,7 @@ const MAX_HISTORY_MESSAGES = 12; // keep request size/cost bounded
 const MAX_BODY_BYTES = 16 * 1024; // reject oversized payloads before parsing
 const MAX_TOTAL_CHARS = 8000;
 
-const SYSTEM_PROMPT = `You are MoneyGroww's AI financial assistant, helping Indian retail users understand
-personal finance concepts: SIPs, mutual funds, EMIs, tax saving, budgeting, and general investment
-literacy. Be concise, practical, and use ₹ for currency examples.
-
-Hard rules:
-- You are NOT a SEBI-registered investment advisor. Never recommend a specific stock, fund, or
-  platform, and never claim guaranteed returns.
-- If asked for specific/personalized investment advice, explain the general concept and suggest
-  the user consult a qualified financial advisor for their specific situation.
-- When it's naturally relevant, you may suggest the user try MoneyGroww's SIP / Mutual Fund / EMI
-  calculators to model their own numbers.
-- Keep responses focused; avoid filler.`;
+const { buildSystemPrompt } = require('./_lib/assistant');
 
 exports.handler = async (event) => {
   // method + same-site origin + rate limit (10 requests/minute/IP, best effort)
@@ -56,7 +45,7 @@ exports.handler = async (event) => {
     return json(400, { error: 'Invalid JSON body' });
   }
 
-  const { messages } = payload || {};
+  const { messages, context, lang } = payload || {};
   if (!Array.isArray(messages) || messages.length === 0) {
     return json(400, { error: '"messages" array is required' });
   }
@@ -93,8 +82,8 @@ exports.handler = async (event) => {
         },
         body: JSON.stringify({
           model: process.env.GROQ_MODEL || DEFAULT_MODEL,
-          messages: [{ role: 'system', content: SYSTEM_PROMPT }, ...sanitized],
-          temperature: 0.6,
+          messages: [{ role: 'system', content: buildSystemPrompt({ context, lang }) }, ...sanitized],
+          temperature: 0.3,
           max_tokens: 600,
         }),
       },

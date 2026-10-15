@@ -66,29 +66,29 @@ export function AboutContact() {
         <header className="max-w-2xl">
           <h2 className="t-h2 text-ink">About MoneyGroww</h2>
           <p className="t-body mt-3">
-            MoneyGroww exists to make financial planning understandable. Clear calculators, honest
-            assumptions and live market context, so you can make decisions with the full picture
-            in front of you, whatever your experience.
+            MoneyGroww helps ordinary families plan with honest numbers. Every result shows what
+            fund costs, tax and rising prices take away, so you plan with what you will actually be able to
+            spend, whatever your experience.
           </p>
         </header>
 
         <ul className="mt-12 grid gap-px overflow-hidden rounded-lg border border-line bg-line sm:grid-cols-2 lg:grid-cols-4">
           {[
             {
-              title: 'Full picture, always',
-              body: 'Every projection splits what you put in from what compounding adds, or what a loan really costs.',
+              title: 'Real numbers first',
+              body: 'Results are shown after fund costs and tax, in today’s rupees, with a range instead of one fixed return.',
             },
             {
-              title: 'Live Indian market data',
-              body: 'Index, ETF and large-cap prices refresh continuously while you plan.',
+              title: 'Plans, not products',
+              body: 'We never recommend or sell a fund, stock or policy. We help you work out how much, for how long.',
             },
             {
               title: 'No account required',
               body: 'Every calculator works immediately, with nothing to sign up for.',
             },
             {
-              title: 'Assumptions stated',
-              body: 'Each projection names the return rate it assumes and what it cannot promise.',
+              title: 'Sources dated',
+              body: 'Every rate and tax rule shows where it came from and when it was last checked.',
             },
           ].map((item) => (
             <li key={item.title} className="bg-surface p-6">
@@ -108,15 +108,15 @@ export function AboutContact() {
             {[
               {
                 title: 'Standard formulas',
-                body: 'SIP uses the annuity-due future-value formula; lumpsum uses annual compounding; EMI uses the standard reducing-balance formula.',
+                body: 'The same month-by-month method banks and fund houses use. Each instalment is tracked, so we know which gains are short- or long-term for tax.',
               },
               {
-                title: 'Covered by tests',
-                body: 'The calculation layer is unit-tested, including zero-rate and boundary cases, so a refactor cannot silently change a result.',
+                title: 'Checked against reference calculators',
+                body: 'Automated tests compare our results with widely used public calculators (for example ₹5,000 a month for 10 years at 12% = ₹11,61,695) on every change.',
               },
               {
-                title: 'Sources, attributed',
-                body: 'Prices come from Yahoo Finance and headlines from Mint, fetched server-side and refreshed continuously.',
+                title: 'The assistant quotes, it does not calculate',
+                body: 'Any rupee figure the AI assistant gives comes from these tested calculators, not from the AI doing its own maths.',
               },
             ].map((item) => (
               <li key={item.title} className="bg-surface p-6">

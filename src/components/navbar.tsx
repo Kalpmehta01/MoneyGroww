@@ -25,7 +25,7 @@ const NAV_ITEMS = [
   { id: 'calculators', label: 'Calculators' },
   { id: 'insights', label: 'Insights' },
   { id: 'chat', label: 'Assistant' },
-  { id: 'pricing', label: 'Pricing' },
+  { id: 'early-access', label: 'Early access' },
   { id: 'about', label: 'About' },
 ];
 
