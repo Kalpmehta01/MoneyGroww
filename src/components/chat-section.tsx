@@ -38,7 +38,7 @@ const TOOL_NAMES: Record<CalcSnapshot['tool'], string> = {
 
 const WELCOME: Message = {
   id: 0,
-  text: "Hi, I'm the MoneyGroww assistant. Ask me about SIPs, mutual funds, loans and EMIs, tax-saving options or budgeting, and I'll explain it in plain language.",
+  text: "Hi, I'm the MoneyGroww assistant. Ask me about saving, SIPs, loans, tax or budgeting, or ask me to explain the result of the calculator you just used. I can reply in English, Hindi or Gujarati.",
   isBot: true,
 };
 

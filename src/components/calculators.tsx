@@ -369,7 +369,7 @@ function HonestResult({
     : toggles.tax || toggles.costs
       ? 'In your hand'
       : 'Projected value';
-  const multiple = result.invested > 0 ? result.bottomLine / result.invested : 0;
+  const multiple = result.invested > 0 ? result.inHand / result.invested : 0;
 
   const rows: { label: string; value: number; sign?: '−' | '='; strong?: boolean; show: boolean }[] = [
     { label: `Projected value at ${returnPct}%`, value: result.headlineValue, show: true },
@@ -388,8 +388,8 @@ function HonestResult({
         {result.invested > 0 && (
           <>
             {' '}
-            · {multiple >= 1 ? `${multiple.toFixed(2)}× your money` : `${Math.round((1 - multiple) * 100)}% less than you put in`}
-            {toggles.inflation ? ' in real terms' : ''}
+            · {multiple >= 1 ? `grows ${multiple.toFixed(2)}×` : `${Math.round((1 - multiple) * 100)}% less than you put in`}
+            {toggles.costs || toggles.tax ? ' after costs and tax' : ''}
           </>
         )}
       </p>
@@ -1016,7 +1016,7 @@ export function Calculators({ activeTab = 'sip', onTabChange, onSnapshot }: Calc
                 </Card>
                 <GrowthChart
                   title="Principal vs interest paid each year"
-                  data={generateEMIChartData(emiData).map((row, i) => ({ ...row, year: i + 1 }))}
+                  data={generateEMIChartData(emiData, emiData.tenure).map((row, i) => ({ ...row, year: i + 1 }))}
                   xKey="year"
                   formatValue={inr}
                   formatAxis={compactInr}
@@ -1101,7 +1101,7 @@ export function Calculators({ activeTab = 'sip', onTabChange, onSnapshot }: Calc
                   </p>
                   <p className="mt-4 text-[0.8125rem] leading-relaxed text-ink-2">
                     You are taking out <span className="tabular font-medium text-ink">{withdrawalRate.toFixed(1)}%</span> of your savings in the first
-                    year. {withdrawalRate > 6 ? 'Above roughly 4–5% a year, savings meant to last decades are at real risk of running out.' : 'Lower withdrawal rates leave room for bad market years.'}
+                    year. {withdrawalRate > 5 ? 'Above roughly 4–5% a year, savings meant to last decades are at real risk of running out.' : 'Lower withdrawal rates leave room for bad market years.'}
                   </p>
                   <p className="mt-4 text-[0.75rem] leading-relaxed text-ink-3">
                     Assumes the same return every year and ignores tax on withdrawals. A run of bad years early on shortens this.

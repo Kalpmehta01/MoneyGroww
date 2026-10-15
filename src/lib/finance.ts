@@ -156,13 +156,13 @@ export function generateMFChartData(input: MfInput) {
   return data;
 }
 
-export function generateEMIChartData(input: EmiInput) {
+export function generateEMIChartData(input: EmiInput, maxYears = 10) {
   const { emi } = calculateEMI(input);
   const data: { year: string; principal: number; interest: number }[] = [];
   const monthlyRate = input.interestRate / 100 / 12;
   let balance = input.loanAmount;
 
-  for (let year = 1; year <= Math.min(input.tenure, 10); year++) {
+  for (let year = 1; year <= Math.min(input.tenure, maxYears); year++) {
     let yearlyPrincipal = 0;
     let yearlyInterest = 0;
 

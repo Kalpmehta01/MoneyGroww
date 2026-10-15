@@ -4,36 +4,53 @@ A comprehensive web application designed to help users plan their financial futu
 
 ![Project Overview](https://www.figma.com/design/2UokgwfADGxkFe9tCUYKZG/Personal-Financial-Growth-Estimator) <!-- Figma Link as Placeholder -->
 
+## What changed in the October 2026 upgrade
+
+Positioning: **"what your money is really worth."** Every projection walks from the usual headline number to what the money is actually worth: gross value → minus fund costs → minus tax → in today's rupees. It also shows a range instead of a single fixed return.
+
+| Area | Change |
+|---|---|
+| Finance engine (`src/lib/finance.ts`) | `honestProjection` (costs, tax, inflation), per-instalment holding periods for LTCG/STCG, step-up SIP, `planGoal` (reverse-solves the monthly SIP that meets a goal *after* costs and tax), `simulatePrepayment`, `simulateSWP`, `projectionRange` (±3 points) |
+| Reference data (`src/data/reference-rates.ts`) | FD and PPF rates, planning assumptions and FY 2026-27 tax rules in **one dated, sourced file**. Review it every quarter and after each Budget |
+| Calculators | 5 tools: Monthly SIP, Goal planner, One-time, Loan / EMI (with prepayment), Withdrawals (SWP). Preset return chips (FD / PPF / Debt / Equity) instead of a blank % box. recharts replaced by a small SVG chart |
+| Hero | Shows the honest figure (₹5,84,392) next to the headline figure (₹11,61,695) for the same SIP |
+| Assistant | Receives the figures from the calculator in view (validated server-side) and is told to quote them, never compute. Hindi and Gujarati replies. Explainer-only suggestions. No product picks or allocations |
+| Market data | Single-stock ticker removed. Tiles: NIFTY 50, SENSEX, gold in ₹/10 g, FD and PPF rates. Last good quote cached on the server and in the browser, with an "as of" time. No more "feed unavailable" banner |
+| News | Headline and link only (no republished summaries), attributed |
+| Pricing | Replaced by **Early access**: a Netlify Forms email sign-up with explicit consent and feature interest. No fake prices |
+| Quality | 51 unit tests, including golden vectors that match public calculators. `npm run typecheck` is clean. JS bundle 706 kB → 342 kB |
+
+### Assistant evals
+
+`evals/assistant-cases.json` holds behaviour checks for the live model: no fund or stock picks, no allocations, no guarantees, correct LTCG/STCG figures, uses calculator figures, Hindi and Gujarati. Run them against `netlify dev` or a deploy preview after any prompt or model change:
+
+```bash
+BASE_URL=http://localhost:8888 npm run eval:assistant
+```
+
+### Still open (needs the client)
+
+- Legal entity, grievance contact, data-retention period and privacy notice for the two forms (DPDP Act 2023)
+- Whether the client holds an AMFI ARN or SEBI RIA registration. This decides how far personalised features can go
+- A licensed, delayed market-data source to replace Yahoo's unofficial endpoint, and permission for headline use
+- Trademark check on the "MoneyGroww" name (close to an existing fintech brand)
+- Validating the return range against historical index (TRI) data, which needs a licensed data source
+- Full-site Gujarati/Hindi translation. Today only the assistant replies in those languages
+
 ## Key Features
 
-- **Interactive Financial Calculators (`/src/components/calculators.tsx`, math in `/src/lib/finance.ts`)**
-  - **SIP Calculator:** Visualizes systematic investment plan returns over time, showing the power of compounding.
-  - **Mutual Fund Calculator:** Estimates lumpsum investment growth.
-  - **EMI Calculator:** Calculates monthly loan, interest, and principal amortization.
-  - All calculator math lives in `src/lib/finance.ts` as pure, unit-tested functions (see `finance.test.ts`), separate from the UI. All numeric inputs are clamped/validated (`clampNumber`) so blank or out-of-range input can't produce `NaN` or nonsensical results.
-  - *Includes insightful visualizations using Recharts (Pie, Line, and Area charts).*
-
-- **Live Market Feed & News (`/src/components/live-ticker.tsx` & `/src/components/insights.tsx`)**
-  - **Live Ticker:** Infinitely scrolling marquee showing real-time stock prices and daily changes for top Indian companies (e.g., Reliance, TCS, HDFC Bank).
-  - **Financial News:** Latest Indian market headlines from Mint's RSS feed (Economic Times as fallback).
-  - Both are now served through this project's own serverless functions (see below) instead of calling third-party CORS-relay services directly from the browser.
-
-- **AI Financial Assistant (`/src/components/chat-section.tsx` + `netlify/functions/chat.js`)**
-  - Real AI responses via the **Groq API** (`llama-3.3-70b-versatile` by default — fast, OpenAI-compatible chat completions). The API key is kept server-side only; it is never bundled into the frontend.
-  - Falls back to the original rule-based canned responses if the API call fails (offline, running plain `vite dev` without functions, rate-limited, etc.), so the assistant never just errors out.
-
-- **Pricing / Subscriptions (`/src/components/pricing.tsx`)**
-  - A Free / Plus / Pro tier comparison UI. **This is a design placeholder only** — no payment processor is wired up yet. See "Subscriptions" below for how to actually implement billing.
+- **Calculators** (`src/components/calculators.tsx`, math in `src/lib/finance.ts`): goal planner, SIP with step-up, one-time, EMI with prepayment, SWP. All figures can be shown after costs, after tax and in today's money.
+- **Market & insights** (`src/components/insights.tsx`): index and gold snapshot, reference rates, headlines, and habit cards that link into the calculators and assistant.
+- **AI assistant** (`src/components/chat-section.tsx` + `netlify/functions/chat.js`, prompt in `netlify/functions/_lib/assistant.js`): Groq `llama-3.3-70b-versatile`, with a rule-based offline fallback (`src/lib/chat-fallback.ts`) that follows the same rules.
+- **Early access** (`src/components/early-access.tsx`): demand capture via Netlify Forms.
 
 ## Technical Stack & Libraries
 
 - **Framework:** React 18, Vite, TypeScript
 - **Backend:** Netlify Functions (serverless, Node) for anything that needs a secret key or should not run in the browser
 - **Styling:** Tailwind CSS integrated with Radix UI primitives for accessible, high-quality UI components (Accordion, Dialog, Slider, Tabs, etc.).
-- **Data Visualization:** Recharts.
-- **Animations:** Framer Motion (`motion/react`), Embla Carousel.
-- **Form Handling:** React Hook Form.
-- **Testing:** Vitest, for the calculator math in `src/lib/finance.ts`.
+- **Data Visualization:** a small hand-written SVG chart (`src/components/growth-chart.tsx`).
+- **Testing:** Vitest for the finance engine and assistant prompt safety (`npm test`), `npm run typecheck`, and live-model evals (`npm run eval:assistant`).
 
 ## Architecture: why there's now a `netlify/functions/` folder
 
@@ -104,17 +121,8 @@ npm run build
 
 Netlify picks up `netlify.toml` automatically (build command, publish dir, and functions dir are all configured there).
 
-## Subscriptions (business model notes)
+## Subscriptions (later)
 
-The Pricing page (`src/components/pricing.tsx`) currently shows three illustrative tiers — **Free**, **Plus (₹149/mo)**, **Pro (₹399/mo)** — but has no real billing behind it yet. To make it real:
-
-1. **Add auth** (e.g. Supabase Auth, or any provider) so a "user" exists to attach a plan to.
-2. **Add a `subscriptions` table** (user id, plan, status, renewal date) — Supabase/Postgres is a natural fit here since it's already available as a connected tool in this environment.
-3. **Add a payment processor**: Razorpay or Stripe both support recurring subscriptions and work with INR; Razorpay is generally the simpler choice for an India-only audience.
-4. **Gate features server-side**, not just in the UI — e.g. the `chat.js` function should check the caller's plan before allowing unlimited messages, and any "save my scenario" feature should check plan server-side too. A client-side-only `isPremium` flag can be trivially bypassed.
-5. Wire the `onClick` handlers in `pricing.tsx` (currently a placeholder `alert(...)`) to the payment processor's checkout flow.
-
-This is intentionally left as scaffolding rather than a live integration, since it requires your own Stripe/Razorpay account and keys.
-
+There is no billing. The Early access form collects demand first. If paid features follow (saved plans, monthly check-ins), add auth, a database, and Razorpay or Stripe subscriptions, and gate features server-side. Before charging for anything plan-specific, confirm the regulatory position (see "Still open").
 ---
 *Developed for personal finance exploration and educational planning.*

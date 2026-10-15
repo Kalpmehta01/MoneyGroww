@@ -29,12 +29,14 @@ const W = 640;
 const H = 260;
 const PAD = { top: 8, right: 12, bottom: 26, left: 58 };
 
-function niceMax(v: number) {
-  if (v <= 0) return 1;
-  const exp = Math.pow(10, Math.floor(Math.log10(v)));
-  const f = v / exp;
-  const nice = f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10;
-  return nice * exp;
+/** Round axis: 4–5 gridlines at 1/2/2.5/5 × 10ⁿ steps, so labels read cleanly (₹2L, ₹4L…). */
+function niceScale(v: number) {
+  if (v <= 0) return { max: 1, step: 0.25 };
+  const rough = v / 4;
+  const exp = Math.pow(10, Math.floor(Math.log10(rough)));
+  const f = rough / exp;
+  const step = (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * exp;
+  return { max: Math.ceil(v / step) * step, step };
 }
 
 export function GrowthChart({
@@ -55,7 +57,7 @@ export function GrowthChart({
     const innerW = W - PAD.left - PAD.right;
     const innerH = H - PAD.top - PAD.bottom;
     const rawMax = Math.max(1, ...data.flatMap((row) => series.map((s) => row[s.key] ?? 0)));
-    const maxY = niceMax(rawMax);
+    const { max: maxY, step } = niceScale(rawMax);
     const n = data.length;
     const xs = data.map((_, i) => PAD.left + (n <= 1 ? innerW / 2 : (i / (n - 1)) * innerW));
     const y = (v: number) => PAD.top + innerH - (Math.max(0, v) / maxY) * innerH;
@@ -65,7 +67,7 @@ export function GrowthChart({
       const area = `${line}L${xs[n - 1]?.toFixed(1)},${(PAD.top + innerH).toFixed(1)}L${xs[0]?.toFixed(1)},${(PAD.top + innerH).toFixed(1)}Z`;
       return { ...s, line, area, y };
     });
-    const ticks = [0, 0.25, 0.5, 0.75, 1].map((f) => ({ v: maxY * f, y: y(maxY * f) }));
+    const ticks = Array.from({ length: Math.round(maxY / step) + 1 }, (_, k) => ({ v: k * step, y: y(k * step) }));
     return { xs, paths, ticks };
   }, [data, series]);
 

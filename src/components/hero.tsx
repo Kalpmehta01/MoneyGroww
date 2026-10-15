@@ -70,14 +70,14 @@ export function Hero({ onNavigateToCalculators, onSectionChange }: HeroProps) {
               </span>
             </div>
 
-            <div className="mt-6 grid grid-cols-2 gap-6">
+            <div className="mt-6 grid gap-5 sm:grid-cols-2 sm:gap-6">
               <div>
                 <p className="text-[0.8125rem] text-ink-3">What most calculators show</p>
                 <div className="t-figure mt-1 text-2xl text-ink-3 line-through decoration-1">{inr(r.headlineValue)}</div>
               </div>
               <div>
                 <p className="text-[0.8125rem] font-medium text-ink">What it is really worth</p>
-                <div className="t-figure mt-1 text-[2.25rem] leading-none text-ink">{inr(r.todaysMoney)}</div>
+                <div className="t-figure mt-1 text-[2rem] leading-none text-ink sm:text-[2.25rem]">{inr(r.todaysMoney)}</div>
               </div>
             </div>
 
